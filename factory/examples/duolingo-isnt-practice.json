@@ -1,0 +1,41 @@
+{
+  "client": "sayla",
+  "caption": "A language becomes real when you practice answering out loud. #learnfrench #frenchforbeginners #languagelearning #sayla",
+  "background_images": [
+    "../assets/backgrounds/duolingo-isnt-practice.png"
+  ],
+  "output_dir": "../drafts/duolingo-isnt-practice",
+  "font": {
+    "fontSize": 72,
+    "lineHeight": 1.25,
+    "position": "top"
+  },
+  "imagery": "Fictional story draft on existing AI-generated Sayla imagery; not a testimonial; manual approval required.",
+  "source_provenance": {
+    "concept_path": "historical-sayla/concept.json",
+    "concept_sha256": "b2de08a6907cd6c7137e9fd8d2d18d05cac93c39a157fd910e7bd15b1c67b271",
+    "background_path": "historical-sayla/belief_violation.png",
+    "background_sha256": "47c55ff84b7099a950109c5e475dbc37dd94741fd952585575ade21235adc887",
+    "adaptation": "Original hook arc used as source; payoff and caption rewritten as non-testimonial draft copy."
+  },
+  "hooks": [
+    {
+      "id": "belief-violation",
+      "text": [
+        "duolingo is not practice"
+      ]
+    },
+    {
+      "id": "real-world-panic",
+      "text": [
+        "practice is when someone waits for your answer"
+      ]
+    },
+    {
+      "id": "speaking-practice",
+      "text": [
+        "make space to say it back with sayla"
+      ]
+    }
+  ]
+}

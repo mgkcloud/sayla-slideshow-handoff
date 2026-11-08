@@ -1,0 +1,44 @@
+{
+  "name": "sayla-speaking-gap",
+  "slides": [
+    {
+      "kind": "cover",
+      "eyebrow": "the speaking gap",
+      "headline": "You've got a <span class=\"accent\">900-day streak</span>. You still can't order a coffee.",
+      "rule": true,
+      "swipe": "swipe"
+    },
+    {
+      "kind": "statement",
+      "headline": "Apps taught you to <span class=\"accent\">tap</span>.",
+      "sub": "Tap the right answer. Pick the picture. Match the pair. Four hundred times, in the right order."
+    },
+    {
+      "kind": "statement",
+      "headline": "Nobody taught you to <span class=\"accent\">answer</span>.",
+      "sub": "Someone asks you something out loud and your mind goes blank. Not because you don't know the words. Because you've never had to say them."
+    },
+    {
+      "kind": "statement",
+      "headline": "So Sayla <span class=\"accent\">calls you</span>.",
+      "sub": "A real voice on the phone. It asks something simple, then it waits. No buttons. No multiple choice. Nowhere to hide."
+    },
+    {
+      "kind": "statement",
+      "headline": "The first call is uncomfortable.",
+      "sub": "The second one isn't. By the fifth you stop translating in your head and start just talking."
+    },
+    {
+      "kind": "statement",
+      "headline": "Ten minutes. Phone to your ear. <span class=\"accent\">No screen.</span>",
+      "sub": "That's the whole practice. It's the part every other app skips."
+    },
+    {
+      "kind": "cta",
+      "headline": "<span class=\"accent\">Speak first.</span> Study later.",
+      "sub": "A language you can use is one you've said out loud, badly, to someone who answers.",
+      "cta": "First call is free",
+      "foot": "link in bio"
+    }
+  ]
+}

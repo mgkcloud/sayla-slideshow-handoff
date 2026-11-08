@@ -1,0 +1,202 @@
+"""Generate TikTok Photo Mode carousel slides for Sayla.
+
+Slide 1: background photo + TikTok "Classic" text overlay.
+Slide 2: fake iOS lock screen with notifications (the app-in-the-story placement).
+
+Usage:
+    python3 slides.py hook  out.png "your hook text" [--photo bg.jpg] [--yellow]
+    python3 slides.py lock  out.png
+"""
+
+import os
+import sys
+import textwrap
+
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+W, H = 1179, 2556  # iPhone 15/16 Pro, matches the reference screenshots
+FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+YELLOW = "#F2CE3B"
+
+
+def font(weight=600, size=64):
+    """The 36pt cut, not the Google Fonts static.
+
+    TikTok Sans is a four-axis variable font and the optical size axis is the
+    part that matters here. Google Fonts ships the opsz~14 Text cut; the app
+    sets opsz=36, the Display cut, which is also the variable font's own
+    default. Same family, visibly different letterfit: "Handgloves TIKTOK 123"
+    is 11.730em in the Text cut and 10.912em in the Display one, so text set in
+    the wrong cut runs 7.5% wide and reads loose and un-TikTok-like.
+    """
+    return ImageFont.truetype(os.path.join(FONTS, f"TikTokSans36pt-{weight}.ttf"), size)
+
+
+def wrap(draw, text, ft, max_w):
+    lines, cur = [], ""
+    for word in text.split():
+        trial = f"{cur} {word}".strip()
+        if draw.textlength(trial, font=ft) <= max_w:
+            cur = trial
+        else:
+            if cur:
+                lines.append(cur)
+            cur = word
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def centered_text(img, text, size=68, fill="white", shadow=True, y_frac=0.60):
+    """TikTok Classic overlay: centered, wrapped, optional soft drop shadow.
+
+    Line pitch is 1.16x the size, measured off the reference screenshots
+    (79px pitch at a 68px size on a 1179px canvas).
+    """
+    draw = ImageDraw.Draw(img)
+    ft = font(600, size)
+    lines = wrap(draw, text, ft, int(W * 0.78))
+    lh = int(size * 1.16)
+    total = lh * len(lines)
+    y = int(H * y_frac) - total // 2
+
+    if shadow:
+        # A soft elliptical scrim so the block survives light backgrounds; the
+        # photos are real bedrooms and kitchens, not conveniently dark ones.
+        widest = max(draw.textlength(ln, font=ft) for ln in lines)
+        scrim = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(scrim).ellipse(
+            [W / 2 - widest / 2 - 90, y - size * 0.9,
+             W / 2 + widest / 2 + 90, y + total + size * 0.5],
+            fill=(0, 0, 0, 115))
+        img.alpha_composite(scrim.filter(ImageFilter.GaussianBlur(70)))
+
+        # Two passes: a tight dark halo for contrast, a wide soft one for depth.
+        for blur, alpha in ((4, 200), (16, 150)):
+            layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            ld = ImageDraw.Draw(layer)
+            for i, line in enumerate(lines):
+                x = (W - ld.textlength(line, font=ft)) / 2
+                ld.text((x, y + i * lh), line, font=ft, fill=(0, 0, 0, alpha))
+            img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(blur)))
+
+    draw = ImageDraw.Draw(img)
+    for i, line in enumerate(lines):
+        x = (W - draw.textlength(line, font=ft)) / 2
+        draw.text((x, y + i * lh), line, font=ft, fill=fill)
+    return img
+
+
+def make_hook(out, text, photo=None, yellow=False, y_frac=0.60, size=68):
+    if photo:
+        bg = Image.open(photo).convert("RGBA")
+        # cover-crop to 9:19.5
+        s = max(W / bg.width, H / bg.height)
+        bg = bg.resize((int(bg.width * s), int(bg.height * s)), Image.LANCZOS)
+        bg = bg.crop(((bg.width - W) // 2, (bg.height - H) // 2,
+                      (bg.width - W) // 2 + W, (bg.height - H) // 2 + H))
+    else:
+        bg = Image.new("RGBA", (W, H), (16, 14, 13, 255))
+
+    centered_text(bg, text, size=size, fill=YELLOW if yellow else "white",
+                  shadow=True, y_frac=y_frac)
+    bg.convert("RGB").save(out, quality=95)
+    print("wrote", out)
+
+
+def rounded(size, radius, fill):
+    im = Image.new("RGBA", size, (0, 0, 0, 0))
+    ImageDraw.Draw(im).rounded_rectangle([0, 0, size[0] - 1, size[1] - 1],
+                                         radius=radius, fill=fill)
+    return im
+
+
+EMOJI = "/System/Library/Fonts/Apple Color Emoji.ttc"
+
+
+def draw_emoji(img, ch, xy, size):
+    """Apple Color Emoji has fixed bitmap strikes; render at 160 then downscale."""
+    tile = Image.new("RGBA", (200, 200), (0, 0, 0, 0))
+    ImageDraw.Draw(tile).text((0, 0), ch, font=ImageFont.truetype(EMOJI, 160),
+                              embedded_color=True)
+    bbox = tile.getbbox()
+    if bbox:
+        tile = tile.crop(bbox)
+    tile = tile.resize((size, size), Image.LANCZOS)
+    img.alpha_composite(tile, xy)
+    return size
+
+
+def notification(width, app, when, body, icon_color, icon_glyph):
+    ft_app = font(600, 33)
+    ft_body = font(400, 39)
+    pad = 34
+    lines = []
+    probe = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    for para in body.split("\n"):
+        lines += wrap(probe, para, ft_body, width - pad * 2 - 8) or [""]
+    h = pad + 46 + 10 + len(lines) * 50 + pad - 8
+
+    card = rounded((width, h), 46, (58, 58, 62, 210))
+    d = ImageDraw.Draw(card)
+
+    icon = rounded((58, 58), 15, icon_color)
+    di = ImageDraw.Draw(icon)
+    gf = font(700, 32)
+    di.text(((58 - di.textlength(icon_glyph, font=gf)) / 2, 11),
+            icon_glyph, font=gf, fill="white")
+    card.alpha_composite(icon, (pad, pad))
+
+    name, _, emoji = app.partition(" ")
+    d.text((pad + 76, pad + 14), name.upper(), font=ft_app, fill=(200, 200, 205))
+    if emoji:
+        draw_emoji(card, emoji,
+                   (pad + 76 + int(d.textlength(name.upper(), font=ft_app)) + 10,
+                    pad + 12), 32)
+    d.text((width - pad - d.textlength(when, font=ft_app), pad + 14),
+           when, font=ft_app, fill=(175, 175, 182))
+    for i, ln in enumerate(lines):
+        d.text((pad, pad + 66 + i * 50), ln, font=ft_body, fill="white")
+    return card
+
+
+def make_lock(out):
+    bg = Image.new("RGBA", (W, H), (10, 10, 14, 255))
+    d = ImageDraw.Draw(bg)
+
+    d.text((W / 2 - d.textlength("Saturday, 9 August", font=font(500, 42)) / 2, 300),
+           "Saturday, 9 August", font=font(500, 42), fill=(235, 235, 240))
+    tf = font(500, 210)
+    d.text((W / 2 - d.textlength("21:40", font=tf) / 2, 350),
+           "21:40", font=tf, fill="white")
+
+    cards = [
+        notification(W - 90, "WhatsApp", "2 min ago",
+                     "Gjyshja\nA po vjen me na pa? Nuk kam fol me ty prej dy javesh.",
+                     (37, 211, 102, 255), "W"),
+        notification(W - 90, "Sayla \U0001F98A", "now",
+                     "Kosovo Gheg. 3 minutes. She'll wait.",
+                     (255, 138, 61, 255), "S"),
+    ]
+    y = 1180
+    for c in cards:
+        bg.alpha_composite(c, (45, y))
+        y += c.height + 26
+
+    bg.convert("RGB").save(out, quality=95)
+    print("wrote", out)
+
+
+if __name__ == "__main__":
+    mode, out = sys.argv[1], sys.argv[2]
+    if mode == "hook":
+        def opt(name, cast, default):
+            return cast(sys.argv[sys.argv.index(name) + 1]) if name in sys.argv else default
+
+        make_hook(out, sys.argv[3],
+                  photo=opt("--photo", str, None),
+                  yellow="--yellow" in sys.argv,
+                  y_frac=opt("--y", float, 0.60),
+                  size=opt("--size", int, 68))
+    elif mode == "lock":
+        make_lock(out)

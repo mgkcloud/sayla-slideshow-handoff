@@ -1,0 +1,41 @@
+{
+  "client": "sayla",
+  "caption": "Knowing Spanish isn’t the same as answering in Spanish. Practice the moment you have to respond. #learnspanish #languagelearning #aitutor #sayla",
+  "background_images": [
+    "../assets/backgrounds/spanish-isnt-speaking-spanish.png"
+  ],
+  "output_dir": "../drafts/spanish-isnt-speaking-spanish",
+  "font": {
+    "fontSize": 72,
+    "lineHeight": 1.25,
+    "position": "top"
+  },
+  "imagery": "Fictional story draft on existing AI-generated Sayla imagery; not a testimonial; manual approval required.",
+  "source_provenance": {
+    "concept_path": "historical-sayla/concept.json",
+    "concept_sha256": "552139fc6a24f028634789b17faaf30aa42d50f8c4338a6f55b4d73bb23e695c",
+    "background_path": "historical-sayla/belief_violation.png",
+    "background_sha256": "180ef270fde1f9491aa47c679df91c7cb23c6ece77a6aad4ee9df77c18035f5d",
+    "adaptation": "Original hook arc used as source; payoff and caption rewritten as non-testimonial draft copy."
+  },
+  "hooks": [
+    {
+      "id": "belief-violation",
+      "text": [
+        "knowing spanish isn’t speaking spanish"
+      ]
+    },
+    {
+      "id": "real-world-panic",
+      "text": [
+        "he asked where i’m staying and i blanked"
+      ]
+    },
+    {
+      "id": "speaking-practice",
+      "text": [
+        "practice answering out loud with sayla"
+      ]
+    }
+  ]
+}

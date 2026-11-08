@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""Generate Sayla/Sophia 3-slide hook carousels from Tier-3 belief hooks."""
+import json, subprocess, urllib.request, datetime, re
+from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+
+BASE = Path('<original-host-path>')
+ROOT = BASE/'carousels/sayla_tier3_language_hooks_batch'
+ROOT.mkdir(parents=True, exist_ok=True)
+REFS = [BASE/'character/references/ref_01.png', BASE/'character/references/ref_02.png']
+FONT_BOLD = Path('<original-host-path>')
+FONT_REG = Path('<original-host-path>')
+if not FONT_BOLD.exists(): FONT_BOLD = Path('/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf')
+if not FONT_REG.exists(): FONT_REG = Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
+W,H = 1080,1920
+
+IDENTITY = """Sophia from the provided reference images, preserve full Sophia character identity and all permanent facial features: soft oval/inverted-heart face, warm golden-brown skin, dark brown eyes, natural soft-arch brows, fleshy soft button nose with rounded slightly upturned tip, full lips with naturally fuller lower lip, cheek-forward facial structure, natural asymmetry, dark chocolate hair color and texture. Do not change ethnicity, face shape, age, hair color, facial structure, or core character continuity. Photogenic enhancement only, preserve natural pores, facial microtexture, fine vellus hair, realistic skin, natural asymmetry, non-plastic face."""
+STYLE = """raw high-fidelity iPhone 17 Pro style photograph, 9:16 vertical, 24mm wide-angle phone lens, authentic digital grain, realistic phone-camera exposure rolloff, natural optical bokeh, luxury vacation candid, native TikTok realism, direct phone flash mixed with warm ambient practical lights, subject sharp with background motion blur where natural, no overlay text inside the generated image, no watermark, no readable brand logos."""
+NEG = """Negative prompt: generic woman, changed face, changed ethnicity, changed hair color, altered Sophia identity, plastic skin, waxy skin, over-smoothed face, fake pores, extra fingers, broken hands, distorted eyes, duplicate limbs, unrealistic anatomy, cartoon, CGI, airbrushed glamour render, doll face, heavy beauty filter, blurry face, low-resolution, watermark, text artifacts, erotic pose, lingerie, bikini, cleavage emphasis, voyeur framing, underage, drunk, messy party scene."""
+
+CAROUSELS = [
+  {
+    'slug':'spanish-isnt-speaking-spanish',
+    'language':'Spanish',
+    'caption':'knowing spanish isn’t the same as answering in spanish. practice the panic part. #learnspanish #languagelearning #aitutor #sayla',
+    'slides':[
+      {'role':'belief_violation','text':'knowing spanish isn’t speaking spanish','scene':'Sophia on vacation in Barcelona at golden blue hour, standing outside a tapas bar on a narrow Gothic Quarter street, warm restaurant lights, phone in hand, confident travel outfit, direct flash, poised expression like she thought she was ready.'},
+      {'role':'real_world_panic','text':'he asked where i’m staying and i blanked','scene':'Sophia seated at a tiny Barcelona tapas table at night, menu and sparkling water on the table, a waiter blurred in background waiting, her expression caught between embarrassed smile and panic, direct flash, warm street lamps, realistic candid vacation photo.'},
+      {'role':'sayla_payoff','text':'sayla made me answer out loud','scene':'Sophia back at a boutique Barcelona hotel balcony, city lights behind her, practicing into her phone with relieved focused expression, subtle language-practice screen glow with no readable UI, direct flash, calm confident posture.'},
+    ]
+  },
+  {
+    'slug':'duolingo-isnt-practice',
+    'language':'French',
+    'caption':'duolingo is not practice if nobody ever hears you speak. #learnfrench #frenchforbeginners #languagelearning #sayla',
+    'slides':[
+      {'role':'belief_violation','text':'duolingo is not practice','scene':'Sophia on vacation in Paris at night outside a warm-lit cafe, cobblestone street, Eiffel glow faint and blurred, phone in hand, chic black outfit with cream coat, direct flash, expression confident but slightly skeptical.'},
+      {'role':'real_world_panic','text':'practice is when someone waits for your answer','scene':'Sophia at a Paris bistro table, waiter silhouette and menu visible, espresso cup, candlelight, rain-speckled glass, her lips slightly parted like she is trying to answer in French, direct flash, realistic social panic moment.'},
+      {'role':'sayla_payoff','text':'sayla made me say it back','scene':'Sophia walking beside the Seine at night, holding phone near her mouth, recording herself speaking French, lamps and river reflections behind, relieved smile, direct flash, premium travel candid realism.'},
+    ]
+  },
+  {
+    'slug':'more-words-less-panic',
+    'language':'Italian',
+    'caption':'the problem was never vocabulary. it was the panic before speaking. #learnitalian #languagelearning #aitutor #sayla',
+    'slides':[
+      {'role':'belief_violation','text':'you don’t need more words','scene':'Sophia on vacation in Rome at dusk, standing near a small trattoria and scooter-lined street, phone open with travel notes but no readable UI, confident direct eye contact, black dress and linen shirt, direct flash, warm amber lights.'},
+      {'role':'real_world_panic','text':'you need less panic when he says ciao','scene':'Sophia in a Roman piazza at night, holding a gelato and phone, handsome local figure blurred in background as social context, her face caught in nervous laugh, direct flash, cobblestones, fountain bokeh, non-explicit romantic travel tension.'},
+      {'role':'sayla_payoff','text':'sayla trained the awkward five seconds','scene':'Sophia on a quiet Rome hotel terrace, practicing Italian phrase out loud into her phone, warm string lights, terracotta walls, proud calm smile after repeating the line, direct flash, authentic influencer vacation photo.'},
+    ]
+  },
+]
+
+def run_higgsfield(outdir, slide):
+    prompt = f"{IDENTITY}\n\nScene: {slide['scene']}\n\nStyle: {STYLE}\n\n{NEG}"
+    p = outdir/f"prompt_{slide['role']}.txt"
+    p.write_text(prompt)
+    log = outdir/f"higgsfield_{slide['role']}.log"
+    cmd = ['higgsfield','generate','create','nano_banana_2','--prompt',prompt,'--image',str(REFS[0]),'--image',str(REFS[1]),'--aspect_ratio','9:16','--resolution','2k','--wait','--wait-timeout','20m','--json']
+    print('GEN', outdir.name, slide['role'], flush=True)
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=1500)
+    log.write_text(proc.stdout)
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stdout[-1200:])
+    data = json.loads(proc.stdout)
+    def result_url(value):
+        if isinstance(value, dict):
+            url = value.get('result_url')
+            if isinstance(url, str) and url.startswith(('http://','https://')):
+                return url
+            for child in value.values():
+                found = result_url(child)
+                if found: return found
+        if isinstance(value, list):
+            for child in value:
+                found = result_url(child)
+                if found: return found
+        return None
+    url = result_url(data)
+    if not url:
+        raise RuntimeError('Higgsfield completed without a strict result_url')
+    rawdir=outdir/'raw'; rawdir.mkdir(exist_ok=True)
+    raw=rawdir/f"{slide['role']}.png"
+    req=urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0'})
+    raw.write_bytes(urllib.request.urlopen(req, timeout=180).read())
+    with Image.open(raw) as check:
+        check.verify()
+    return url, raw, p
+
+def cover(im):
+    im=im.convert('RGB')
+    iw,ih=im.size
+    s=max(W/iw,H/ih)
+    im=im.resize((int(iw*s),int(ih*s)),Image.LANCZOS)
+    return im.crop(((im.width-W)//2,(im.height-H)//2,(im.width-W)//2+W,(im.height-H)//2+H))
+
+def wrap(text,font,max_w):
+    d=ImageDraw.Draw(Image.new('RGB',(10,10)))
+    words=text.lower().split(); lines=[]; cur=''
+    for w in words:
+        test=(cur+' '+w).strip()
+        if d.textbbox((0,0),test,font=font)[2] <= max_w:
+            cur=test
+        else:
+            if cur: lines.append(cur)
+            cur=w
+    if cur: lines.append(cur)
+    return lines
+
+def overlay(raw, text, idx):
+    im=cover(Image.open(raw))
+    im=ImageEnhance.Contrast(im).enhance(1.06)
+    im=ImageEnhance.Color(im).enhance(1.04).convert('RGBA')
+    shade=Image.new('RGBA',(W,H),(0,0,0,0)); sd=ImageDraw.Draw(shade)
+    for y in range(H):
+        a=0
+        if y<740: a=max(a,int(66*(1-y/740)))
+        if y>1260: a=max(a,int(42*((y-1260)/(H-1260))))
+        if a: sd.line((0,y,W,y), fill=(0,0,0,a))
+    im.alpha_composite(shade)
+    y = 230 if idx < 3 else 1120
+    size=84
+    while size>=46:
+        f=ImageFont.truetype(str(FONT_BOLD), size)
+        lines=wrap(text,f,900)
+        lh=int(size*1.06); total=lh*len(lines)
+        if total<440: break
+        size-=4
+    halo=Image.new('RGBA',(W,H),(0,0,0,0)); hd=ImageDraw.Draw(halo)
+    cy=y+total//2
+    for r,a in [(420,18),(310,28),(220,40)]:
+        hd.ellipse((W//2-r,cy-r,W//2+r,cy+r), fill=(0,0,0,a))
+    im.alpha_composite(halo)
+    d=ImageDraw.Draw(im)
+    yy=y
+    for line in lines:
+        bbox=d.textbbox((0,0),line,font=f,stroke_width=7)
+        x=(W-(bbox[2]-bbox[0]))//2
+        d.text((x,yy),line,font=f,fill=(255,255,255,255),stroke_width=7,stroke_fill=(0,0,0,245))
+        yy+=lh
+    return im.convert('RGB')
+
+def preview(outdir, finals):
+    TW,TH=270,480
+    sheet=Image.new('RGB',(TW*3+44,TH+78),(10,10,12)); d=ImageDraw.Draw(sheet)
+    f=ImageFont.truetype(str(FONT_REG),24)
+    for i,p in enumerate(finals,1):
+        img=Image.open(p).resize((TW,TH),Image.LANCZOS)
+        x=10+(i-1)*(TW+12)
+        sheet.paste(img,(x,10)); d.text((x+8,TH+25),f'slide {i}',font=f,fill=(235,230,225))
+    out=outdir/'carousel_preview.jpg'; sheet.save(out,quality=92); return out
+
+batch={'created':datetime.datetime.utcnow().isoformat()+'Z','status':'started','carousels':[]}
+(ROOT/'batch_manifest.json').write_text(json.dumps(batch,indent=2))
+for c in CAROUSELS:
+    outdir=ROOT/c['slug']; outdir.mkdir(parents=True, exist_ok=True)
+    manifest={'created':datetime.datetime.utcnow().isoformat()+'Z','status':'started','title':c['slug'],'language':c['language'],'hook':c['slides'][0]['text'],'caption':c['caption'],'source':'sayla_tier3_language_hooks','format':'3-slide Sayla/Sophia hook arc','arc':'Tier-3 belief violation -> real-world social panic -> Sayla speaking-practice payoff','posting':'review-only, not posted','slides':[]}
+    (outdir/'concept.json').write_text(json.dumps(manifest,indent=2))
+    finals=[]
+    for idx,slide in enumerate(c['slides'],1):
+        rec={**slide,'n':idx}
+        try:
+            url, raw, prompt_path = run_higgsfield(outdir, slide)
+            final=outdir/f'slide_{idx:02d}_final.jpg'
+            overlay(raw, slide['text'], idx).save(final, quality=95, subsampling=1)
+            rec.update({'status':'completed','url':url,'raw_path':str(raw),'final_path':str(final),'prompt_path':str(prompt_path)})
+            finals.append(final)
+        except Exception as e:
+            rec.update({'status':'failed','error':str(e)})
+            print('FAILED', c['slug'], slide['role'], e, flush=True)
+        manifest['slides'].append(rec)
+        (outdir/'concept.json').write_text(json.dumps(manifest,indent=2))
+    if finals:
+        manifest['preview']=str(preview(outdir, finals))
+    manifest['status']='completed' if len(finals)==3 else 'partial'
+    (outdir/'concept.json').write_text(json.dumps(manifest,indent=2))
+    batch['carousels'].append({'slug':c['slug'],'status':manifest['status'],'preview':manifest.get('preview'),'path':str(outdir)})
+    (ROOT/'batch_manifest.json').write_text(json.dumps(batch,indent=2))
+
+# batch contact sheet
+cards=[]
+for item in batch['carousels']:
+    if item.get('preview') and Path(item['preview']).exists(): cards.append(Path(item['preview']))
+if cards:
+    imgs=[Image.open(p).resize((405,720),Image.LANCZOS) for p in cards]
+    sheet=Image.new('RGB',(405*len(imgs)+20*(len(imgs)+1),780),(8,8,10))
+    for i,img in enumerate(imgs): sheet.paste(img,(20+i*(405+20),20))
+    batch_prev=ROOT/'batch_preview.jpg'; sheet.save(batch_prev,quality=92); batch['batch_preview']=str(batch_prev)
+batch['status']='completed'
+(ROOT/'batch_manifest.json').write_text(json.dumps(batch,indent=2))
+print('BATCH', ROOT/'batch_manifest.json')
+print('PREVIEW', batch.get('batch_preview'))

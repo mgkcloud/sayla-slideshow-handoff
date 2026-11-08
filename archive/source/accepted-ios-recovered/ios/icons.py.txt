@@ -1,0 +1,52 @@
+"""Draw the app icons used in the fake lock screen notifications.
+
+iOS masks notification icons to a squircle itself, so these are drawn as full
+bleed squares and the CSS border-radius does the rounding.
+
+    python3 icons.py
+"""
+
+import os
+
+from PIL import Image, ImageDraw
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+S = 256  # supersampled; the template renders it at 34pt
+
+
+def whatsapp(path):
+    im = Image.new("RGBA", (S, S), (37, 211, 102, 255))
+    d = ImageDraw.Draw(im)
+    # speech bubble
+    pad = 52
+    d.ellipse([pad, pad, S - pad, S - pad], fill="white")
+    d.polygon([(pad + 6, S - pad - 26), (pad + 6, S - pad + 22), (pad + 52, S - pad - 4)],
+              fill="white")
+    # handset, drawn as two rounded blobs joined by an arc
+    d.ellipse([S / 2 - 44, S / 2 - 42, S / 2 - 4, S / 2 - 2], fill=(37, 211, 102, 255))
+    d.ellipse([S / 2 - 6, S / 2 - 6, S / 2 + 40, S / 2 + 40], fill=(37, 211, 102, 255))
+    d.line([(S / 2 - 30, S / 2 - 16), (S / 2 + 16, S / 2 + 28)],
+           fill=(37, 211, 102, 255), width=26)
+    im.save(path)
+
+
+def messages(path):
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    # iOS Messages green vertical gradient
+    top, bot = (100, 221, 23), (30, 195, 55)
+    for y in range(S):
+        t = y / (S - 1)
+        d.line([(0, y), (S, y)],
+               fill=tuple(int(top[i] + (bot[i] - top[i]) * t) for i in range(3)) + (255,))
+    pad = 46
+    d.ellipse([pad, pad - 6, S - pad, S - pad - 2], fill="white")
+    d.polygon([(pad + 18, S - pad - 30), (pad + 10, S - pad + 26), (pad + 62, S - pad - 8)],
+              fill="white")
+    im.save(path)
+
+
+if __name__ == "__main__":
+    whatsapp(os.path.join(HERE, "icon_whatsapp.png"))
+    messages(os.path.join(HERE, "icon_messages.png"))
+    print("wrote icon_whatsapp.png icon_messages.png")

@@ -1,0 +1,244 @@
+"""Measure lock screen geometry off a screenshot, real or rendered.
+
+The point is to compare a render against a real iPhone screenshot when the two
+have different wallpapers, which makes a whole-image diff useless. So instead of
+diffing pixels we extract the geometry of each element and diff the numbers.
+
+    python3 ios/measure.py real.png                 # measure one
+    python3 ios/measure.py real.png mine.png        # measure both, print a diff
+    python3 ios/measure.py --ruler real.png r.png 560 780   # scale over a band
+
+Everything is reported in points on a 393x852 screen, because that is the unit
+the stylesheet is written in. A 1179x2556 screenshot is divided by 3.
+
+What this measures reliably: clock cap height and position, date size and
+position, notification card tops, heights and the gap between them. Those come
+from ink and from card edges that span the full card width, so the wallpaper
+cannot fake them.
+
+What it deliberately does not measure: card side margins and corner radius. The
+cards are translucent, so their side edge contrast is set by whatever is behind
+them, and a threshold picked to work on one wallpaper fails on the next. Use
+--ruler and read those off by eye.
+"""
+
+import json
+import sys
+
+import numpy as np
+from PIL import Image
+
+PT_W, PT_H = 393, 852
+
+
+def load(path):
+    """Normalise to 1179x2556 and return luminance plus the scale to points."""
+    im = Image.open(path).convert("RGB")
+    if (im.width, im.height) != (PT_W * 3, PT_H * 3):
+        im = im.resize((PT_W * 3, PT_H * 3), Image.LANCZOS)
+    a = np.asarray(im).astype(np.float32)
+    return a, a @ np.array([0.299, 0.587, 0.114], np.float32)
+
+
+def runs(mask, min_len=1):
+    """Contiguous True runs in a 1-D boolean array, as (start, end) inclusive."""
+    idx = np.flatnonzero(mask)
+    if idx.size == 0:
+        return []
+    breaks = np.flatnonzero(np.diff(idx) > 1)
+    starts = np.r_[idx[0], idx[breaks + 1]]
+    ends = np.r_[idx[breaks], idx[-1]]
+    return [(s, e) for s, e in zip(starts, ends) if e - s + 1 >= min_len]
+
+
+def clock(lum):
+    """The clock is the tallest run of near-white ink in the top third.
+
+    Searched below the status bar and above the midpoint so notifications and
+    the Dynamic Island cannot win. Returns cap top/bottom and the ink extent,
+    which together give font size (cap height / 0.705 for SF) and position.
+    """
+    band = lum[59 * 3:int(PT_H * 3 * 0.5)]
+    ink = band > 195
+    rowsum = ink.sum(axis=1)
+    # Rows carrying real glyph ink, not wallpaper speckle.
+    tall = runs(rowsum > band.shape[1] * 0.012, min_len=12)
+    if not tall:
+        return None
+    top, bot = max(tall, key=lambda r: r[1] - r[0])
+    sub = ink[top:bot + 1]
+    cols = np.flatnonzero(sub.sum(axis=0) > 0)
+    if cols.size == 0:
+        return None
+    cap = (bot - top + 1) / 3
+    return {
+        "cap_top_pt": round((top + 59 * 3) / 3, 2),
+        "cap_bottom_pt": round((bot + 59 * 3) / 3, 2),
+        "cap_height_pt": round(cap, 2),
+        "implied_font_px": round(cap / 0.705, 1),
+        "ink_left_pt": round(cols[0] / 3, 2),
+        "ink_right_pt": round(cols[-1] / 3, 2),
+        "ink_width_pt": round((cols[-1] - cols[0] + 1) / 3, 2),
+        "centre_x_pt": round((cols[0] + cols[-1]) / 6, 2),
+    }
+
+
+def date_line(lum, clk):
+    """The date sits directly above the clock.
+
+    Only the 44pt immediately above the clock are searched, and only the middle
+    half of the screen, so the status bar cannot be mistaken for the date and
+    bright wallpaper at the edges cannot pad the run.
+    """
+    if not clk:
+        return None
+    stop = int(clk["cap_top_pt"] * 3)
+    start = max(59 * 3, stop - 44 * 3)
+    band = lum[start:stop, PT_W * 3 // 4: PT_W * 3 * 3 // 4]
+    if band.shape[0] < 6:
+        return None
+    ink = band > 185
+    # A date line is one line of ~13pt type, so anything taller than 20pt is
+    # bright wallpaper rather than text and must not be accepted.
+    rs = [r for r in runs(ink.sum(axis=1) > 8, min_len=4) if (r[1] - r[0]) / 3 <= 20]
+    if not rs:
+        return None
+    top, bot = rs[-1]                       # closest to the clock
+    wide = lum[start + top:start + bot + 1] > 185
+    cols = np.flatnonzero(wide.sum(axis=0) > 0)
+    cap = (bot - top + 1) / 3
+    return {
+        "cap_top_pt": round((start + top) / 3, 2),
+        "cap_height_pt": round(cap, 2),
+        "implied_font_px": round(cap / 0.705, 1),
+        "gap_to_clock_pt": round(clk["cap_top_pt"] - (start + bot) / 3, 2),
+        "centre_x_pt": round((cols[0] + cols[-1]) / 6, 2) if cols.size else None,
+    }
+
+
+def cards(rgb, lum):
+    """Notification cards, found by their top and bottom edges.
+
+    A card edge is the one horizontal feature that runs the whole width of the
+    card: at that row nearly every column steps in the same direction at once.
+    Text lines inside the card step in only a few columns, so scoring rows by
+    "what fraction of columns changed, all the same way" separates the card
+    boundary from its contents. Card tops step brighter, bottoms step darker.
+    """
+    dy = np.diff(lum, axis=0)
+    mid = dy[:, 30 * 3:PT_W * 3 - 30 * 3]
+    up = (mid > 2.5).mean(axis=1)          # row got brighter across its width
+    down = (mid < -2.5).mean(axis=1)       # row got darker across its width
+
+    def peaks(sig):
+        hits, i = [], 0
+        while i < len(sig):
+            if sig[i] > 0.72:
+                j = i
+                while j + 1 < len(sig) and sig[j + 1] > 0.72:
+                    j += 1
+                hits.append((i + j) // 2)
+                i = j + 1
+            else:
+                i += 1
+        return hits
+
+    lo, hi = int(PT_H * 3 * 0.40), int(PT_H * 3 * 0.97)
+    tops = [p for p in peaks(up) if lo < p < hi]
+    bots = [p for p in peaks(down) if lo < p < hi]
+
+    out = []
+    for t in tops:
+        after = [b for b in bots if b > t + 20 * 3]
+        if not after:
+            continue
+        b = after[0]
+        if any(t < o < b for o in tops):    # a nearer top means this pair spans two cards
+            continue
+        out.append({
+            "top_pt": round(t / 3, 2),
+            "bottom_pt": round(b / 3, 2),
+            "height_pt": round((b - t) / 3, 2),
+            "mean_rgb": [round(float(v), 1) for v in
+                         rgb[t + 6:b - 6, 60:PT_W * 3 - 60].reshape(-1, 3).mean(axis=0)],
+        })
+    for i in range(1, len(out)):
+        out[i]["gap_above_pt"] = round(out[i]["top_pt"] - out[i - 1]["bottom_pt"], 2)
+    return out
+
+
+def measure(path):
+    rgb, lum = load(path)
+    clk = clock(lum)
+    return {
+        "file": path,
+        "clock": clk,
+        "date": date_line(lum, clk),
+        "cards": cards(rgb, lum),
+    }
+
+
+def diff(a, b):
+    print(f"\n{'':28s} {'REAL':>12s} {'MINE':>12s} {'DELTA':>10s}")
+    print("-" * 66)
+
+    def row(label, x, y):
+        if x is None or y is None:
+            print(f"{label:28s} {str(x):>12s} {str(y):>12s} {'':>10s}")
+            return
+        d = y - x
+        flag = "" if abs(d) < 1 else ("  <<<" if abs(d) >= 3 else "  <")
+        print(f"{label:28s} {x:12.2f} {y:12.2f} {d:+10.2f}{flag}")
+
+    for sec in ("clock", "date"):
+        if a.get(sec) and b.get(sec):
+            print(f"[{sec}]")
+            for k in a[sec]:
+                if isinstance(a[sec][k], (int, float)):
+                    row("  " + k, a[sec][k], b[sec].get(k))
+    print("[cards]")
+    for i, (ca, cb) in enumerate(zip(a["cards"], b["cards"])):
+        print(f"  card {i}")
+        for k in ("top_pt", "height_pt", "gap_above_pt"):
+            row("    " + k, ca.get(k), cb.get(k))
+    if len(a["cards"]) != len(b["cards"]):
+        print(f"  !! card count differs: real {len(a['cards'])}, mine {len(b['cards'])}")
+
+
+def ruler(path, out, top_pt, bot_pt):
+    """Crop a band and overlay a point ruler, for reading edges by eye.
+
+    Card side margins and corner radius cannot be found reliably by threshold:
+    the cards are translucent, so their edge contrast depends entirely on the
+    wallpaper behind them. Rather than report a confident wrong number, this
+    prints a scale over the band and lets the edges be read off directly.
+    """
+    from PIL import ImageDraw
+    im = Image.open(path).convert("RGB")
+    if (im.width, im.height) != (PT_W * 3, PT_H * 3):
+        im = im.resize((PT_W * 3, PT_H * 3), Image.LANCZOS)
+    im = im.crop((0, int(top_pt * 3), PT_W * 3, int(bot_pt * 3)))
+    im = im.resize((im.width * 2, im.height * 2), Image.NEAREST)
+    d = ImageDraw.Draw(im)
+    for pt in range(0, PT_W + 1, 2):
+        x = pt * 6
+        long = pt % 10 == 0
+        d.line([(x, 0), (x, 26 if long else 12)], fill=(255, 0, 128), width=2)
+        if long:
+            d.text((x + 3, 28), str(pt), fill=(255, 0, 128))
+    im.save(out)
+    print("wrote", out, f"({top_pt}-{bot_pt}pt, 1pt = 6px)")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        raise SystemExit(__doc__)
+    if sys.argv[1] == "--ruler":
+        _, _, src, dst, a, b = sys.argv
+        ruler(src, dst, float(a), float(b))
+        raise SystemExit
+    results = [measure(p) for p in sys.argv[1:]]
+    for r in results:
+        print(json.dumps(r, indent=2))
+    if len(results) == 2:
+        diff(*results)

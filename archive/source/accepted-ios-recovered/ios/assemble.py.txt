@@ -1,0 +1,141 @@
+"""Normalise every slide to the 1080x1920 TikTok carousel frame.
+
+Two shapes go in. The generated lifestyle slides are 1520x2688, which is 9:16 to
+within half a percent, so they just resize. The deterministic phone screenshots
+are 1179x2556 (9:19.5) and cannot be cropped to fit: the lock screen keeps its
+notifications near the bottom and its clock near the top, so trimming either end
+throws away the thing the slide exists to show. They are fitted by height onto a
+blurred, darkened enlargement of themselves, which is what the platforms do to
+an over-tall image anyway.
+"""
+import os
+
+from PIL import Image, ImageFilter
+
+import tiktok_text
+
+W, H = 1080, 1920
+OUT = "/tmp/tt/gen/deck"
+CREATIVE = "<original-host-path>"
+
+# The two talking-head slides are the only variable part of the deck; slides 2, 4
+# and 5 are the same artefacts every time. Each variant is one setting, generated
+# from a different scraped viral slide, so a deck is just a choice of two of them.
+# Keeping them named rather than numbered means a deck folder says what it is.
+#
+# The right-hand column is the scraped slide each one was framed from, so a weak
+# variant can be traced back to a weak reference rather than to the prompt.
+VARIANTS = {
+    "car": f"{CREATIVE}/v_car.png",          # erkrbr        passenger seat, daylight
+    "street": f"{CREATIVE}/v_street.png",    # florentinefie city street at night
+    "outdoor": f"{CREATIVE}/v_outdoor.png",  # kimchu0803    open sky, hard sun
+    "neon": f"{CREATIVE}/v_neon.png",        # _soobinii     lit billboards at night
+    "eating": f"{CREATIVE}/v_eating.png",    # florentinefie pavement, mid-bite
+    "park": f"{CREATIVE}/v_park.png",        # florentinefie outdoors, wider crop
+    "dinner": f"{CREATIVE}/v_dinner.png",    # erkrbr        restaurant table, evening
+    "mirror": f"{CREATIVE}/v_mirror.png",    # amyycardy     bathroom mirror selfie
+    "bath": f"{CREATIVE}/v_bath.png",        # lisi.shops    weak: the ref is a bare room
+    "bedroom": f"{CREATIVE}/n1.png",         # no ref; setting written from scratch
+    "carpark": f"{CREATIVE}/n3.png",         # no ref; setting written from scratch
+
+    # Wide band (pick_poses.py BANDS["wide"]). These are the ones with a body and
+    # a stance in them; everything above is a talking head. Captions need a lower
+    # `top` here because the subject occupies the middle of the frame rather than
+    # the top third.
+    "w_mirror": f"{CREATIVE}/v_w_mirror.png",      # kimchu0803     full-length mirror selfie
+    "w_shelf": f"{CREATIVE}/v_w_shelf.png",        # thebellanguyen leaning on bookshelves
+    "w_building": f"{CREATIVE}/v_w_building.png",  # thebellanguyen low angle, glass facade
+    "w_walk": f"{CREATIVE}/v_w_walk.png",          # wolfalexanderl mid-stride on a pavement
+    "w_door": f"{CREATIVE}/v_w_door.png",          # thebellanguyen stood in a doorway
+
+    # Nano Banana Pro, prompted from a measured colour grade instead of from a
+    # scraped slide (ads/grade.py -> ads/prompt_json.py). No pose reference at
+    # all: the framing is written out in words and the look comes from the
+    # numbers of a Pinterest photograph. Each was then regraded in post to those
+    # same numbers, because the model ignored them — see ads/regrade.py.
+    "shop": f"{CREATIVE}/v_shop.png",        # grade p0169  supermarket aisle
+    "pave": f"{CREATIVE}/v_pave.png",        # grade p0021  quiet pavement, walking
+    "crowd": f"{CREATIVE}/v_crowd.png",      # grade p0113  busy street, walking
+    "ledge": f"{CREATIVE}/v_ledge.png",      # grade p0103  ledge by a glass facade
+
+    # Same four scenes and the same four grades, regenerated once the character
+    # was taken from character/sophiaa_spec.json and two reference images were
+    # attached instead of one (ads/generate.py). Prefer these: the face is the
+    # same face in all four, which it was not above, and she is close enough to
+    # camera to be recognised — the batch above is full-length and could be
+    # anyone.
+    "s_shop": f"{CREATIVE}/v2_shop.png",     # grade p0169  supermarket aisle
+    "s_pave": f"{CREATIVE}/v2_pave.png",     # grade p0021  quiet pavement, walking
+    "s_crowd": f"{CREATIVE}/v2_crowd.png",   # grade p0113  busy street, walking
+    "s_ledge": f"{CREATIVE}/v2_ledge.png",   # grade p0103  ledge by a glass facade
+}
+
+DEFAULT_PAIR = ("car", "street")
+
+
+def slides(hook, second):
+    return [
+        ("1_real", VARIANTS[hook], "fill"),
+        ("2_imessage", f"{CREATIVE}/a_2_imessage.png", "fit"),
+        ("3_real", VARIANTS[second], "fill"),
+        ("4_lock", f"{CREATIVE}/a_2_lock_real.png", "fit"),
+        ("5_payoff", f"{CREATIVE}/a_3_payoff.png", "fit"),
+    ]
+
+# Copy lives here, not in the image-generation prompt. Text baked in by the model
+# cannot be corrected or split-tested, and comes out in the wrong typeface; drawn
+# here it is a variable and one run rebuilds the deck. Slides 2, 4 and 5 carry
+# their own text already, so they are absent from this table on purpose.
+CAPTIONS = {
+    "1_real": ("my grandma calls me in Albanian\n"
+               "and i answer in English\n"
+               "every single time", 0.50, 0.66),
+    "3_real": ("every app taught me Tirana Albanian\n"
+               "my family speaks Gheg\n"
+               "it is not the same language", 0.50, 0.66),
+}
+
+
+def fill(im):
+    """Cover the frame, centre-cropping the sliver that overhangs."""
+    s = max(W / im.width, H / im.height)
+    im = im.resize((round(im.width * s), round(im.height * s)), Image.LANCZOS)
+    x, y = (im.width - W) // 2, (im.height - H) // 2
+    return im.crop((x, y, x + W, y + H))
+
+
+def fit(im, margin=30):
+    """Fit by height over a blurred enlargement of the same image."""
+    bg = fill(im).filter(ImageFilter.GaussianBlur(38)).point(lambda v: int(v * 0.55))
+    inner = H - margin * 2
+    s = inner / im.height
+    fg = im.resize((round(im.width * s), inner), Image.LANCZOS)
+    bg.paste(fg, ((W - fg.width) // 2, margin))
+    return bg
+
+
+def build(hook, second, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    deck = slides(hook, second)
+    for name, path, mode in deck:
+        im = Image.open(path).convert("RGB")
+        out = (fill if mode == "fill" else fit)(im)
+        if name in CAPTIONS:
+            text, cx, top = CAPTIONS[name]
+            out = tiktok_text.draw(out, text, cx=cx, top=top)
+        out.save(f"{out_dir}/{name}.png")
+        print(f"{name:12s} {im.size} -> {out.size}  ({mode})"
+              f"{'  + caption' if name in CAPTIONS else ''}")
+
+    sheet = Image.new("RGB", (216 * len(deck), 384), (18, 18, 18))
+    for i, (name, _, _) in enumerate(deck):
+        sheet.paste(Image.open(f"{out_dir}/{name}.png").resize((216, 384), Image.LANCZOS), (i * 216, 0))
+    sheet.save(f"{out_dir}/_sheet.png")
+    print(f"wrote {out_dir}/_sheet.png")
+    return f"{out_dir}/_sheet.png"
+
+
+if __name__ == "__main__":
+    import sys
+    hook, second = (sys.argv[1:3] + list(DEFAULT_PAIR))[:2]
+    build(hook, second, f"{OUT}_{hook}_{second}")

@@ -1,0 +1,15 @@
+{
+  "name": "slideshow-pipeline",
+  "version": "1.0.0",
+  "description": "TikTok slideshow generator \u2014 overlays hook text onto background images to produce 1080x1920 PNGs",
+  "main": "generate-slides.js",
+  "type": "module",
+  "scripts": {
+    "generate": "node generate-slides.js",
+    "batch": "node batch.js"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.67"
+  },
+  "license": "MIT"
+}

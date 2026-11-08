@@ -1,0 +1,79 @@
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; color: #222; background: #fff; font: 15px/1.45 system-ui, sans-serif; }
+header, main, footer { max-width: 1120px; margin: auto; padding: 16px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #ddd; }
+h1 { margin: 0; font-size: 20px; }
+h1 a { color: inherit; text-decoration: none; }
+h2 { font-size: 18px; margin: 0 0 8px; }
+h3 { font-size: 14px; margin: 20px 0 5px; }
+p { margin: 5px 0 12px; overflow-wrap: anywhere; }
+a { color: #165ba8; }
+button, select, input { font: inherit; color: inherit; background: #fff; border: 1px solid #bbb; border-radius: 3px; padding: 8px 10px; min-height: 40px; }
+button, summary { cursor: pointer; }
+button:disabled { opacity: .4; cursor: default; }
+button:hover:not(:disabled) { background: #f3f3f3; }
+:focus-visible { outline: 2px solid #165ba8; outline-offset: 2px; }
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+#chapter-select { flex: 1; max-width: 460px; min-width: 200px; }
+.search { margin-left: auto; }
+.search[open] { flex-basis: 100%; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+#keyword-filter { flex: 1; min-width: 180px; }
+#filter-count { align-self: center; font-size: 13px; }
+.viewer { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.images, .notes { min-width: 0; }
+#image-stage { height: min(70vh, 660px); min-height: 320px; position: relative; border: 1px solid #ddd; background: #fafafa; }
+#generation-image { position: absolute; inset: 0; width: 100%; height: 100%; padding: 10px 10px 52px; object-fit: contain; }
+#open-lightbox { position: absolute; bottom: 8px; right: 8px; min-height: 34px; padding: 5px 10px; font-size: 13px; }
+#image-error { padding: 24px; }
+#generation-controls { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
+#generation-controls button { width: 44px; }
+#thumbnail-strip { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 8px; }
+#thumbnail-strip > div { flex: 0 0 60px; min-width: 0; }
+.thumbnail-button { position: relative; width: 60px; height: 80px; padding: 2px; border: 1px solid #ddd; }
+.thumbnail-button img { width: 100%; height: 100%; object-fit: contain; }
+.thumbnail-button[aria-current="true"] { border: 2px solid #165ba8; }
+.thumbnail-number { position: absolute; top: 2px; left: 2px; padding: 0 3px; background: #fff; color: #222; font-size: 10px; }
+#chapter-status, .muted, .filename, footer { color: #666; font-size: 12px; }
+#generation-hook, #generation-caption { white-space: pre-line; }
+#generation-hook { font-size: 17px; }
+#source-links { padding-left: 18px; margin: 6px 0; font-size: 13px; }
+#source-links li { margin: 5px 0; overflow-wrap: anywhere; }
+.private-label { display: none; }
+.more-notes { border-top: 1px solid #ddd; margin-top: 20px; padding-top: 12px; font-size: 13px; }
+.more-notes summary { font-size: 14px; }
+.more-notes ul { padding-left: 18px; }
+.more-notes li { margin: 6px 0; overflow-wrap: anywhere; }
+#generation-metadata { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#generation-metadata div { min-width: 0; }
+#generation-metadata dt { color: #666; }
+#generation-metadata dd { margin: 0; overflow-wrap: anywhere; }
+#next-step strong { display: block; }
+#empty-state { border: 1px solid #ddd; padding: 20px; }
+#empty-state h2 { font-size: 17px; }
+footer { border-top: 1px solid #ddd; margin-top: 20px; }
+#lightbox { width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 12px; border: none; background: #fff; }
+#lightbox::backdrop { background: #fff; }
+#lightbox[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
+.lightbox-toolbar, .lightbox-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.lightbox-toolbar p, .lightbox-controls span { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.lightbox-image-wrap { min-height: 0; }
+#lightbox-image { width: 100%; height: 100%; object-fit: contain; }
+#lightbox button { flex-shrink: 0; }
+@media (max-width: 650px) {
+  header, main, footer { padding: 12px; }
+  header > a { font-size: 12px; }
+  .toolbar > label { flex-basis: 100%; font-size: 13px; }
+  #chapter-select { flex-basis: 100%; width: 100%; max-width: none; }
+  .toolbar > button { font-size: 13px; }
+  .viewer { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  #image-stage { min-height: 0; height: min(65vh, 580px); }
+  .notes { padding-top: 8px; }
+}
+
+.repo-access { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.repo-button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 14px; border: 1px solid #222; border-radius: 3px; background: #222; color: #fff; text-decoration: none; font-size: 15px; font-weight: 600; }
+.repo-button:hover { background: #444; }
+.repo-access span { font-size: 11px; color: #666; }
+@media (max-width: 420px) { header { gap: 8px; } header h1 { font-size: 17px; } .repo-button { padding: 10px; font-size: 14px; } }

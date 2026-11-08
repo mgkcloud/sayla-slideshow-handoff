@@ -1,0 +1,494 @@
+"""The three carousel variants, and the driver that renders every slide.
+
+Format is copied from the two reference carousels: slide 1 is a raw selfie with
+a single emotional line, slide 2 is the "receipts" screen.
+
+There are two flavours of slide 2 and every variant renders both, so the flavour
+can be picked per post rather than baked in here:
+
+    *_2_lock.png       lock screen, the Sayla notification sits inside the story
+    *_2_imessage.png   the thread itself, a wall of Albanian and short English
+
+    python3 variants.py            # render everything into out/
+    python3 variants.py a          # just variant a
+"""
+
+import json
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(HERE, "out")
+IOS = os.path.join(HERE, "ios")
+
+WHATSAPP = os.path.join(IOS, "icon_whatsapp.png")
+MESSAGES = os.path.join(IOS, "icon_messages.png")
+SAYLA = os.path.join(IOS, "sayla_icon.png")
+
+# Every lock screen shares this chassis; only the notifications change.
+# No statusTime here on purpose: variants set their own "time" and the template
+# falls back to it, so pinning one would have shown 23:47 in the status bar of a
+# screen whose clock reads 01:12.
+CHASSIS = {
+    "date": "Tuesday, 12 August",
+    "time": "23:47",
+    "scrim": 0.22,
+    "notifyBottom": 96,
+}
+
+VARIANTS = {
+    "a": {
+        "name": "gjyshja",
+        "hook": "my grandma texts me every week and i still can't reply properly",
+        "face": "sophia_a.png",
+        "y": 0.62,
+        "size": 76,
+        "wallpaper": "wall_a.png",
+        "payoff": "it's called sayla. it speaks gheg, not textbook albanian.",
+        "lock": {
+            "time": "23:47",
+            "date": "Tuesday, 12 August",
+            "notifications": [
+                {
+                    "iconImage": WHATSAPP,
+                    "title": "Gjyshja",
+                    "when": "2m ago",
+                    "body": "A po vjen me na pa? Nuk kam fol me ty prej dy javesh.",
+                },
+                {
+                    "iconImage": SAYLA,
+                    "title": "Sayla",
+                    "when": "now",
+                    "body": "Kosovo Gheg. 3 minutes. She'll still be there tomorrow.",
+                },
+            ],
+        },
+        "thread": {
+            "statusTime": "23:47",
+            "unread": 12,
+            "peer": "Gjyshja",
+            "peerInitials": "G",
+            "messages": [
+                {"stamp": "Sunday 21:04"},
+                {"text": "A po vjen me na pa?"},
+                {"text": "Nuk kam fol me ty prej dy javesh"},
+                {"text": "hi gjyshe!!", "out": True},
+                {"text": "sorry been so busy", "out": True},
+                {"text": "Si je? A po ha mire?"},
+                {"text": "Babi tha qe je lodh shume"},
+                {"text": "im ok :)", "out": True},
+                {"stamp": "Today 23:41"},
+                {"text": "Sa mall qe kam per ty bir"},
+                {"text": "Kur ke me ardh?"},
+                {"text": "Une jam plake, mos prit shume"},
+                {"text": "soon i promise", "out": True, "receipt": "Delivered"},
+            ],
+        },
+    },
+    "b": {
+        "name": "going-back",
+        "hook": "flying to kosovo in 6 weeks and my cousins already think i'm american",
+        "face": "sophia_b.png",
+        "y": 0.42,
+        "size": 76,
+        "wallpaper": "wall_b.png",
+        "payoff": "sayla. actual gheg. 3 minutes a night.",
+        "lock": {
+            "time": "01:12",
+            "date": "Saturday, 16 August",
+            "notifications": [
+                {
+                    "iconImage": MESSAGES,
+                    "title": "Dren",
+                    "when": "5m ago",
+                    "body": "qysh je? je gati me ardh a jo lol",
+                },
+                {
+                    "iconImage": SAYLA,
+                    "title": "Sayla",
+                    "when": "now",
+                    "body": "6 weeks. Gheg, not the textbook stuff. Start tonight.",
+                },
+            ],
+        },
+        "thread": {
+            "statusTime": "01:12",
+            "unread": 4,
+            "peer": "Dren",
+            "peerInitials": "D",
+            "messages": [
+                {"stamp": "Friday 18:22"},
+                {"text": "qysh je bre"},
+                {"text": "je gati me ardh a jo lol"},
+                {"text": "yeah 6 weeks!!", "out": True},
+                {"text": "po po. amerikani po kthehet"},
+                {"text": "a din me fol shqip tash apo jo"},
+                {"text": "lol", "out": True},
+                {"text": "a little", "out": True},
+                {"stamp": "Today 01:12"},
+                {"text": "gjith shoqnia po pyesin per ty"},
+                {"text": "mos u bo si hera e kaluar qe hesht gjith naten"},
+                {"text": "i wont", "out": True, "receipt": "Delivered"},
+            ],
+        },
+    },
+    "c": {
+        "name": "only-one",
+        "hook": "i'm the only one in my family who can't speak albanian",
+        "face": "sophia_c.png",
+        "y": 0.44,
+        "size": 76,
+        "wallpaper": "wall_c.png",
+        "payoff": "sayla. it lets you be bad at it in private first.",
+        "lock": {
+            "time": "19:03",
+            "date": "Sunday, 10 August",
+            "notifications": [
+                {
+                    "iconImage": MESSAGES,
+                    "title": "Familja",
+                    "when": "12m ago",
+                    "body": "Nana tha me ardh te dielen te gjith. Mos mungo prap.",
+                },
+                {
+                    "iconImage": SAYLA,
+                    "title": "Sayla",
+                    "when": "now",
+                    "body": "You understand more than you think. Say one line back.",
+                },
+            ],
+        },
+        "thread": {
+            "statusTime": "19:03",
+            "unread": 7,
+            "peer": "Nana",
+            "peerInitials": "N",
+            "messages": [
+                {"stamp": "Saturday 14:10"},
+                {"text": "Te dielen po vjen gjith familja"},
+                {"text": "Mos mungo prap"},
+                {"text": "ok", "out": True},
+                {"text": "Halla Fatime po vjen me femijt"},
+                {"text": "Do te flasim per gjyshin"},
+                {"text": "ok see you sunday", "out": True},
+                {"stamp": "Today 19:03"},
+                {"text": "A je nisur?"},
+                {"text": "Te gjith po presin"},
+                {"text": "Fol shqip sonte, te lutem"},
+                {"text": "omw", "out": True, "receipt": "Read 19:02"},
+            ],
+        },
+    },
+
+    # ---- second set: setup, then betrayal -------------------------------
+    #
+    # a/b/c strike the same note twice. The hook says "my grandma misses me"
+    # and the thread shows grandma missing her; the hook says "my cousins think
+    # I'm american" and the thread shows a cousin saying so. Nothing is
+    # revealed between slide 1 and slide 2, so there is no reason to stay for
+    # slide 2 and no reaction when it lands. They read as illustrated captions.
+    #
+    # These four are built the other way round. Slide 1 is a flat, incomplete
+    # sentence with no villain in it. Slide 2 is the receipts, and the receipts
+    # are what make it cruel. The line the viewer arrives at is not "that's
+    # sad", it is "wait, he said WHAT" - which is the comment, and the comment
+    # is the distribution.
+    #
+    # The device that makes it work is that his side is in Albanian. The viewer
+    # cannot read it either, so they are put exactly where she is: watching
+    # someone end something in a language they were never taught. Every other
+    # ad for a language app asserts that the gap hurts. This one makes the
+    # audience feel it for four seconds. It is also the only mechanic here that
+    # a competitor cannot copy without selling Albanian.
+    #
+    # His Albanian is Gheg, not standard Tosk - "me fol" not "të flas", "asht"
+    # not "është", "tash" not "tani". That is the product's whole claim
+    # (payoff: "it speaks gheg, not textbook albanian"), so a thread written in
+    # schoolbook Albanian would undercut the sell in the same frame.
+    #
+    # The damning line is always the second-to-last message, never the last.
+    # The thread is bottom-anchored and overflows upward under the nav blur, so
+    # the bottom of the stack is the only part guaranteed to be on screen.
+    "d": {
+        "name": "in-albanian",
+        "hook": "he ended it in albanian so i'd have to translate it myself",
+        "scene": "stairs",
+        "face": "sophia_a.png",
+        "y": 0.58,
+        "size": 72,
+        "wallpaper": "wall_a.png",
+        "payoff": "sayla. so nobody gets to say that to you again.",
+        "lock": {
+            "time": "23:19",
+            "date": "Thursday, 14 August",
+            "notifications": [
+                {"iconImage": MESSAGES, "title": "Ardit", "when": "now",
+                 "body": "Nese te kishte interesu, kishe me msu deri tash."},
+                {"iconImage": SAYLA, "title": "Sayla", "when": "now",
+                 "body": "Gheg, from zero. You can start at 23:19."},
+            ],
+        },
+        "thread": {
+            "statusTime": "23:19",
+            "unread": 2,
+            "peer": "Ardit",
+            "peerInitials": "A",
+            "messages": [
+                {"stamp": "Today 23:12"},
+                {"text": "A je zgju"},
+                {"text": "Nuk po di qysh me ta thon kete"},
+                {"text": "Sonte nana ime te pyti tri here a je mire"},
+                {"text": "Ti vec me shikove mua"},
+                {"text": "Un pergjigjem per ty prej dy vjetesh"},
+                {"text": "Ne cdo dreke, ne cdo dasme, ne cdo telefonate"},
+                {"text": "ardit i can't read all of this", "out": True},
+                {"text": "please just say it in english", "out": True},
+                {"text": "Kjo asht pikerisht problemi"},
+                {"text": "Du femij qe munden me fol me gjyshen e tyre"},
+                {"text": "Ti je e mrekullueshme. Po nuk je e imja."},
+                {"text": "i can learn. i'll start tomorrow", "out": True},
+                {"text": "Nese te kishte interesu, kishe me msu deri tash"},
+                {"text": "that's not fair", "out": True, "receipt": "Read 23:19"},
+            ],
+        },
+    },
+    "e": {
+        "name": "different-table",
+        "hook": "he sat me at a different table at his cousin's wedding",
+        "scene": "hall",
+        "face": "sophia_b.png",
+        "y": 0.58,
+        "size": 72,
+        "wallpaper": "wall_b.png",
+        "payoff": "sayla. next wedding you sit wherever you want.",
+        "lock": {
+            "time": "01:48",
+            "date": "Sunday, 17 August",
+            "notifications": [
+                {"iconImage": MESSAGES, "title": "Blerim", "when": "3m ago",
+                 "body": "E bona per ty. Ti nuk merr vesh kur flasin shpejt."},
+                {"iconImage": SAYLA, "title": "Sayla", "when": "now",
+                 "body": "Gheg at speed, not textbook. 3 minutes a night."},
+            ],
+        },
+        "thread": {
+            "statusTime": "01:48",
+            "unread": 5,
+            "peer": "Blerim",
+            "peerInitials": "B",
+            "messages": [
+                {"stamp": "Today 01:31"},
+                {"text": "why was i on table 9", "out": True},
+                {"text": "with your work friends", "out": True},
+                {"text": "i sat there for four hours", "out": True},
+                {"text": "E bona per ty"},
+                {"text": "Ne tavolinen tone askush nuk flet anglisht"},
+                {"text": "Kishe me ndenj kot tri ore"},
+                {"text": "i would rather sit there not understanding", "out": True},
+                {"text": "than be put somewhere else", "out": True},
+                {"text": "Halla ime pyti kush je"},
+                {"text": "Nuk kisha cka me i thon"},
+                {"text": "Thashe se je nje shoqe prej pune"},
+                {"text": "you could have said i'm your girlfriend",
+                 "out": True, "receipt": "Read 01:48"},
+            ],
+        },
+    },
+    "f": {
+        "name": "went-back",
+        "hook": "he moved back to kosovo and i found out from his sister",
+        "scene": "car",
+        "face": "sophia_c.png",
+        "y": 0.56,
+        "size": 72,
+        "wallpaper": "wall_c.png",
+        "payoff": "sayla. gheg, 3 minutes a night, before the next one goes.",
+        "lock": {
+            "time": "04:26",
+            "date": "Tuesday, 19 August",
+            "notifications": [
+                {"iconImage": MESSAGES, "title": "Endrit", "when": "1m ago",
+                 "body": "Aty jam vetvetja. Me ty isha gjysma."},
+                {"iconImage": SAYLA, "title": "Sayla", "when": "now",
+                 "body": "It takes 3 minutes. It took him four years."},
+            ],
+        },
+        "thread": {
+            "statusTime": "04:26",
+            "unread": 9,
+            "peer": "Endrit",
+            "peerInitials": "E",
+            "messages": [
+                {"stamp": "Today 04:11"},
+                {"text": "your sister posted you at the airport", "out": True},
+                {"text": "were you going to tell me", "out": True},
+                {"text": "Po du me ta shpjegu"},
+                {"text": "Kater vjet fola anglisht ne shpine time"},
+                {"text": "Nuk qesha si duhet asnjehere"},
+                {"text": "i learned to cook for your mother", "out": True},
+                {"text": "i learned the songs", "out": True},
+                {"text": "i learned every name in your family", "out": True},
+                {"text": "Kenget nuk jane gjuha"},
+                {"text": "Aty jam vetvetja. Me ty isha gjysma"},
+                {"text": "you never once corrected me",
+                 "out": True, "receipt": "Delivered"},
+            ],
+        },
+    },
+    "g": {
+        "name": "the-cafe",
+        "hook": "he met a girl at a cafe in prishtina and told me what she said",
+        "scene": "cafe",
+        "face": "sophia_a.png",
+        "y": 0.56,
+        "size": 70,
+        "wallpaper": "wall_a.png",
+        "payoff": "sayla. one sentence a night, in the albanian he actually speaks.",
+        "lock": {
+            "time": "21:07",
+            "date": "Friday, 15 August",
+            "notifications": [
+                {"iconImage": MESSAGES, "title": "Leon", "when": "now",
+                 "body": "Nuk bani gjo. Ti pyet cka tha, un po ta thom."},
+                {"iconImage": SAYLA, "title": "Sayla", "when": "now",
+                 "body": "Gheg, the way it's actually spoken. Start tonight."},
+            ],
+        },
+        "thread": {
+            "statusTime": "21:07",
+            "unread": 3,
+            "peer": "Leon",
+            "peerInitials": "L",
+            "messages": [
+                {"stamp": "Today 20:52"},
+                {"text": "Sot ne kafe u ula me nje vajze"},
+                {"text": "Folem vetem dy minuta"},
+                {"text": "who", "out": True},
+                {"text": "S'ka rendesi kush"},
+                {"text": "Tha nje fjali qe ti kurre nuk ma ke thone"},
+                {"text": "Sepse nuk din qysh"},
+                {"text": "say it in english then", "out": True},
+                {"text": "Nese ta perkthej, e prish"},
+                {"text": "so translate it wrong", "out": True},
+                {"text": "i've been asking you to teach me for two years",
+                 "out": True},
+                {"text": "Nuk jam mesuesi yt"},
+                {"text": "no. you're just leaving",
+                 "out": True, "receipt": "Read 21:07"},
+            ],
+        },
+    },
+}
+
+# The four new concepts want a specific still, not any still: she has just read
+# the thread the viewer is about to see. a/b/c could sit on any of the ten
+# scenes because their hooks were statements about her life, so a supermarket
+# aisle worked as well as a bedroom. These are the ten seconds after a message
+# landed, and a scene where she is cheerfully talking to her phone contradicts
+# the caption over her face.
+#
+# The pairing is data rather than a note in a commit, because build_post.py's
+# `scene` argument and the variant key are chosen together or the post is
+# incoherent, and nothing else in the tree records that.
+SCENE_FOR = {k: v["scene"] for k, v in VARIANTS.items() if "scene" in v}
+
+
+def render_ios(key, slide, cfg):
+    out = os.path.join(OUT, f"{key}_{slide}.png")
+    tmp = os.path.join(OUT, f".{key}_{slide}.json")
+    with open(tmp, "w") as fh:
+        json.dump(cfg, fh)
+    subprocess.run([sys.executable, os.path.join(IOS, "render.py"), tmp, out], check=True)
+    os.remove(tmp)
+
+
+def render_lock(key, v):
+    cfg = dict(CHASSIS)
+    cfg.update(v["lock"])
+    cfg["screen"] = "lock"
+    wall = os.path.join(HERE, "walls", v["wallpaper"])
+    if os.path.exists(wall):
+        cfg["wallpaper"] = wall
+    render_ios(key, "2_lock", cfg)
+
+
+def render_imessage(key, v):
+    cfg = dict(v["thread"])
+    cfg["screen"] = "imessage"
+    cfg.setdefault("theme", "dark")
+    render_ios(key, "2_imessage", cfg)
+
+
+def find_photo(name):
+    """Resolve a slide-1 photo by name, from faces/ or from out/.
+
+    faces/ holds the three selfies generated by hand in August. out/ is where
+    ads/generate.py drops everything it fetches. Looking in both is the whole
+    reconciliation: until this existed the ads pipeline could build a prompt,
+    fire it and download the result, and there was still no way to put that
+    result on a slide — render_hook only ever opened faces/.
+
+    An absolute or relative path is taken as given, so a one-off render does not
+    need the file moved into either directory first.
+    """
+    if os.path.sep in name:
+        return name if os.path.exists(name) else None
+    for d in (os.path.join(HERE, "faces"), OUT):
+        p = os.path.join(d, name)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def render_hook(key, v, photo=None, suffix=""):
+    face = find_photo(photo or v["face"])
+    if not face:
+        print("skip hook, no photo:", photo or v["face"])
+        return
+    out = os.path.join(OUT, f"{key}_1_hook{suffix}.png")
+    subprocess.run([sys.executable, os.path.join(HERE, "slides.py"),
+                    "hook", out, v["hook"], "--photo", face,
+                    "--y", str(v.get("y", 0.60)), "--size", str(v.get("size", 68))],
+                   check=True)
+    return out
+
+
+APP_SHOT = os.path.join(
+    os.path.dirname(HERE), "Code", "ShqipTutor",
+    "appstore-screenshots", "raw", "08-live-tutor-14s.png")
+
+
+def render_payoff(key, v):
+    """Slide 3: the real app, so the reveal has something to land on."""
+    if not os.path.exists(APP_SHOT):
+        print("skip payoff, no app screenshot")
+        return
+    out = os.path.join(OUT, f"{key}_3_payoff.png")
+    subprocess.run([sys.executable, os.path.join(HERE, "slides.py"),
+                    "hook", out, v["payoff"], "--photo", APP_SHOT,
+                    "--y", "0.75", "--size", "60"], check=True)
+
+
+if __name__ == "__main__":
+    os.makedirs(OUT, exist_ok=True)
+    args = sys.argv[1:]
+
+    # `hook a s2_arcade.png` renders slide 1 only, against a named photo, to
+    # <key>_1_hook_<photo stem>.png. Testing a slide-1 prompt means rendering
+    # the same line over several photos and looking at them side by side, and
+    # the full run rebuilds three iOS screens per variant through headless
+    # Chrome to get there.
+    if args[:1] == ["hook"]:
+        key, photos = args[1], args[2:]
+        for photo in photos or [VARIANTS[key]["face"]]:
+            stem = os.path.splitext(os.path.basename(photo))[0]
+            print(render_hook(key, VARIANTS[key], photo, f"_{stem}"))
+        sys.exit()
+
+    for k in args or list(VARIANTS):
+        v = VARIANTS[k]
+        render_hook(k, v)
+        render_lock(k, v)
+        render_imessage(k, v)
+        render_payoff(k, v)

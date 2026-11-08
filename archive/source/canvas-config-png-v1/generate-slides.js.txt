@@ -1,0 +1,359 @@
+import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
+import { mkdir, writeFile, readdir, readFile } from 'node:fs/promises';
+import { join, resolve, dirname } from 'node:path';
+import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import https from 'node:https';
+import http from 'node:http';
+
+const W = 1080;
+const H = 1920;
+const CTA_BAR_FRACTION = 0.15;
+const CTA_BAR_HEIGHT = Math.round(H * CTA_BAR_FRACTION);
+const TEXT_AREA_TOP = 0.30; // 30% from top (TikTok safe zone above caption)
+const MAX_TEXT_WIDTH = W * 0.85; // 85% of canvas width for text
+const FONT_DIR = resolve(dirname(import.meta.url.replace('file://', '')), 'fonts');
+
+// ─── Font Registration ───────────────────────────────────────────────────────
+let fontsRegistered = false;
+
+export function registerFonts() {
+  if (fontsRegistered) return;
+  const interBold = join(FONT_DIR, 'Inter-Bold.ttf');
+  if (existsSync(interBold)) {
+    GlobalFonts.registerFromPath(interBold, 'Inter Bold');
+    console.log(`  [font] Registered Inter Bold from ${interBold}`);
+  } else {
+    console.warn(`  [font] WARNING: Inter-Bold.ttf not found at ${interBold}, using system fallback`);
+  }
+  const montserratBlack = join(FONT_DIR, 'Montserrat-Black.ttf');
+  if (existsSync(montserratBlack)) {
+    GlobalFonts.registerFromPath(montserratBlack, 'Montserrat Black');
+    console.log(`  [font] Registered Montserrat Black from ${montserratBlack}`);
+  }
+  fontsRegistered = true;
+}
+
+// ─── Image Loading ────────────────────────────────────────────────────────────
+export async function loadImageSource(src) {
+  // If it's a URL, download to a buffer first
+  if (src.startsWith('http://') || src.startsWith('https://')) {
+    const buf = await downloadToBuffer(src);
+    return loadImage(buf);
+  }
+  // Local file path
+  return loadImage(resolve(src));
+}
+
+function downloadToBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, { timeout: 30000 }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return downloadToBuffer(res.headers.location).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+      }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+// ─── Text Wrapping ───────────────────────────────────────────────────────────
+export function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
+// ─── Draw Background (cover-fit, centered) ──────────────────────────────────
+export function drawBackground(ctx, img, canvasW, canvasH) {
+  const imgW = img.width;
+  const imgH = img.height;
+  const imgAspect = imgW / imgH;
+  const canvasAspect = canvasW / canvasH;
+
+  let sx, sy, sw, sh;
+
+  if (imgAspect > canvasAspect) {
+    // Image is wider than canvas → crop sides
+    sh = imgH;
+    sw = imgH * canvasAspect;
+    sx = (imgW - sw) / 2;
+    sy = 0;
+  } else {
+    // Image is taller than canvas → crop top/bottom
+    sw = imgW;
+    sh = imgW / canvasAspect;
+    sx = 0;
+    sy = (imgH - sh) / 2;
+  }
+
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvasW, canvasH);
+}
+
+// ─── Draw CTA Bar ────────────────────────────────────────────────────────────
+export function drawCTABar(ctx, text, bgColor, canvasW, canvasH, fontSize) {
+  const barH = CTA_BAR_HEIGHT;
+  const barY = canvasH - barH;
+
+  // Background
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, barY, canvasW, barH);
+
+  // Text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `${Math.round(fontSize * 0.6)}px "Inter Bold", Bold`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text.toUpperCase(), canvasW / 2, barY + barH / 2);
+}
+
+// ─── Draw Hook Text ──────────────────────────────────────────────────────────
+export function drawHookText(ctx, textLines, opts = {}) {
+  const {
+    fontFamily = 'Inter Bold',
+    fontSize = 72,
+    fontColor = '#FFFFFF',
+    outlineColor = 'rgba(0,0,0,0.9)',
+    outlineWidth = 4,
+    shadowColor = 'rgba(0,0,0,0.85)',
+    shadowBlur = 8,
+    shadowOffsetX = 4,
+    shadowOffsetY = 4,
+    lineHeight = 1.25,
+    position = 'top',
+  } = opts;
+
+  const fontStr = `${fontSize}px "${fontFamily}"`;
+  ctx.font = fontStr;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  // Wrap all text lines
+  const allWrappedLines = [];
+  for (const line of textLines) {
+    const wrapped = wrapText(ctx, line, MAX_TEXT_WIDTH);
+    allWrappedLines.push(...wrapped);
+  }
+
+  const lh = Math.round(fontSize * lineHeight);
+  const totalTextH = allWrappedLines.length * lh;
+
+  // Vertical position: ~30% from top for 'top', center for 'center'
+  let startY;
+  if (position === 'center') {
+    startY = (H - CTA_BAR_HEIGHT) / 2 - totalTextH / 2;
+  } else {
+    // 'top' → 30% from top
+    startY = H * TEXT_AREA_TOP;
+  }
+
+  // Draw each wrapped line
+  for (let i = 0; i < allWrappedLines.length; i++) {
+    const y = startY + i * lh;
+    const x = W / 2;
+
+    // Shadow layer
+    ctx.save();
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = shadowBlur;
+    ctx.shadowOffsetX = shadowOffsetX;
+    ctx.shadowOffsetY = shadowOffsetY;
+    ctx.fillStyle = fontColor;
+    ctx.fillText(allWrappedLines[i], x, y);
+    ctx.restore();
+
+    // Outline/stroke layer
+    if (outlineWidth > 0) {
+      ctx.save();
+      ctx.strokeStyle = outlineColor;
+      ctx.lineWidth = outlineWidth * 2;
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+      ctx.strokeText(allWrappedLines[i], x, y);
+      ctx.restore();
+    }
+
+    // Fill layer on top
+    ctx.fillStyle = fontColor;
+    ctx.fillText(allWrappedLines[i], x, y);
+  }
+
+  return allWrappedLines;
+}
+
+// ─── Generate Single Slide ───────────────────────────────────────────────────
+export async function generateSlide({ backgroundSrc, hookText, hookId, hashtags, client, font: fontOpts, ctaText, ctaBgColor, outputDir, slideIndex, totalSlides }) {
+  registerFonts();
+
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+
+  // 1. Load and draw background (cover-fit, centered)
+  let bgImg;
+  try {
+    bgImg = await loadImageSource(backgroundSrc);
+  } catch (err) {
+    console.warn(`  [warn] Failed to load background ${backgroundSrc}: ${err.message}`);
+    // Fallback: solid dark background
+    bgImg = null;
+  }
+
+  if (bgImg) {
+    drawBackground(ctx, bgImg, W, H);
+  } else {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // 2. Draw hook text overlay
+  const fontDefaults = {
+    fontFamily: 'Inter Bold',
+    fontSize: 72,
+    fontColor: '#FFFFFF',
+    outlineColor: 'rgba(0,0,0,0.9)',
+    outlineWidth: 4,
+    shadowColor: 'rgba(0,0,0,0.85)',
+    shadowBlur: 8,
+    shadowOffsetX: 4,
+    shadowOffsetY: 4,
+  };
+  const font = { ...fontDefaults, ...fontOpts };
+
+  drawHookText(ctx, hookText, font);
+
+  // 3. Draw CTA bar at bottom
+  if (ctaText) {
+    drawCTABar(ctx, ctaText, ctaBgColor || '#2D7D46', W, H, font.fontSize);
+  }
+
+  // 4. Export PNG
+  await mkdir(outputDir, { recursive: true });
+  const num = String(slideIndex + 1).padStart(3, '0');
+  const filename = `slide_${num}_${hookId}.png`;
+  const filepath = join(outputDir, filename);
+
+  const pngBuffer = canvas.toBuffer('image/png');
+  await writeFile(filepath, pngBuffer);
+
+  return {
+    filename,
+    filepath: resolve(filepath),
+    hookId,
+    hookText,
+    backgroundSrc,
+    hashtags,
+    width: W,
+    height: H,
+  };
+}
+
+// ─── Batch Generation from Config Object ────────────────────────────────────
+export async function generateFromConfig(config) {
+  registerFonts();
+  const {
+    client,
+    background_images: bgImages,
+    hooks,
+    font: fontOpts,
+    cta_text: ctaText,
+    cta_bg_color: ctaBgColor,
+    output_dir: outputDir,
+  } = config;
+
+  const results = [];
+
+  for (let i = 0; i < hooks.length; i++) {
+    const hook = hooks[i];
+    const bgSrc = bgImages[i % bgImages.length]; // cycle through backgrounds
+
+    console.log(`  [slide ${i + 1}/${hooks.length}] ${hook.id}: "${hook.text.join(' / ')}"`);
+
+    const result = await generateSlide({
+      backgroundSrc: bgSrc,
+      hookText: hook.text,
+      hookId: hook.id,
+      hashtags: hook.hashtags || '',
+      client,
+      font: fontOpts,
+      ctaText,
+      ctaBgColor,
+      outputDir,
+      slideIndex: i,
+      totalSlides: hooks.length,
+    });
+    results.push(result);
+  }
+
+  // Write manifest
+  const manifest = {
+    client,
+    generated_at: new Date().toISOString(),
+    canvas: { width: W, height: H },
+    total_slides: results.length,
+    slides: results.map(r => ({
+      filename: r.filename,
+      hook_id: r.hookId,
+      hook_text: r.hookText,
+      background: r.backgroundSrc,
+      hashtags: r.hashtags,
+    })),
+    font: fontOpts || {},
+    cta_text: ctaText,
+    cta_bg_color: ctaBgColor,
+  };
+
+  const manifestPath = join(outputDir, 'slides-config.json');
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+  console.log(`  [manifest] Written ${manifestPath}`);
+
+  return manifest;
+}
+
+// ─── CLI Entry ───────────────────────────────────────────────────────────────
+async function main() {
+  const args = process.argv.slice(2);
+  const configPath = args.find(a => !a.startsWith('--'));
+
+  if (!configPath) {
+    console.error('Usage: node generate-slides.js <slides-config.json>');
+    console.error('  Or use batch.js for brand-config-driven generation');
+    process.exit(1);
+  }
+
+  const configRaw = await readFile(resolve(configPath), 'utf-8');
+  const config = JSON.parse(configRaw);
+
+  console.log(`\n🎨 Slideshow Pipeline — ${config.client}`);
+  console.log(`  Backgrounds: ${config.background_images.length}`);
+  console.log(`  Hooks: ${config.hooks.length}`);
+  console.log(`  Output: ${config.output_dir}\n`);
+
+  const manifest = await generateFromConfig(config);
+
+  console.log(`\n✅ Done — ${manifest.total_slides} slides in ${config.output_dir}`);
+}
+
+// Run if called directly
+const isMain = process.argv[1] && resolve(process.argv[1]).replace(/\.js$/, '') === resolve(import.meta.url.replace('file://', '')).replace(/\.js$/, '');
+if (isMain || process.argv[1]?.endsWith('generate-slides.js')) {
+  main().catch(err => { console.error(err); process.exit(1); });
+}

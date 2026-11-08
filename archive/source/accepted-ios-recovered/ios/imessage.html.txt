@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* iPhone 15/16 Pro Messages thread. Geometry in CSS px = iOS points. */
+  :root {
+    --blue: #0B84FE;        /* iMessage outgoing */
+    --green: #34C759;       /* SMS outgoing */
+    --grey-dark: #26262A;   /* incoming, dark mode */
+    --grey-light: #E9E9EB;  /* incoming, light mode */
+    --bubble-size: 17px;
+    --bubble-lh: 1.294;     /* 22/17 */
+    --radius: 19px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  html, body {
+    width: 393px; height: 852px; overflow: hidden;
+    /* system-ui, not -apple-system. In headless Chrome "-apple-system",
+       "SF Pro Text" and "SF Pro Display" all resolve to nothing and fall
+       through to Helvetica; only system-ui reaches the real SFNS.ttf.
+       Checked by cap height: SF is 0.7050 em, Helvetica 0.7180. */
+    font-family: system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  }
+  #screen { position: relative; width: 393px; height: 852px; overflow: hidden; }
+
+  body.dark  { --page: #000; }
+  body.light { --page: #fff; }
+  body.dark #screen { background: #000; color: #fff; }
+  body.light #screen { background: #fff; color: #000; }
+
+  /* ---- nav bar: back chevron, centred avatar + name, facetime ---- */
+  #nav {
+    position: absolute; top: 0; left: 0; right: 0; height: 143px;
+    z-index: 4;
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+  }
+  body.dark  #nav { background: rgba(26,26,28,0.82); border-bottom: 0.5px solid rgba(255,255,255,0.14); }
+  body.light #nav { background: rgba(249,249,249,0.86); border-bottom: 0.5px solid rgba(0,0,0,0.16); }
+
+  #back {
+    position: absolute; left: 8px; top: 76px;
+    display: flex; align-items: center; gap: 4px; color: var(--blue);
+  }
+  #back svg { width: 12px; height: 21px; }
+  #unread { font-size: 17px; font-weight: 400; letter-spacing: -0.3px; }
+
+  #peer {
+    position: absolute; left: 0; right: 0; top: 62px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  #avatar {
+    width: 50px; height: 50px; border-radius: 25px;
+    background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 21px; font-weight: 400; color: #fff;
+    background-color: #8E8E93;
+  }
+  #peername {
+    display: flex; align-items: center; gap: 3px;
+    font-size: 12px; font-weight: 400; letter-spacing: -0.1px;
+  }
+  #peername svg { width: 6px; height: 10px; opacity: 0.45; }
+  body.dark  #peername svg path { fill: #fff; }
+  body.light #peername svg path { fill: #000; }
+
+  #facetime { position: absolute; right: 18px; top: 82px; color: var(--blue); }
+  #facetime svg { width: 27px; height: 17px; }
+
+  /* ---- thread ----
+     Anchored to the bottom so the newest message always sits above the
+     compose bar, which is what a real screenshot looks like. */
+  #thread {
+    position: absolute; left: 0; right: 0; bottom: 104px;
+    padding: 0 12px; display: flex; flex-direction: column; align-items: stretch;
+  }
+
+  .stamp {
+    text-align: center; font-size: 11px; letter-spacing: 0.1px;
+    margin: 12px 0 8px; color: #8E8E93;
+  }
+  .stamp b { font-weight: 600; }
+
+  .row { display: flex; margin-top: 2px; }
+  .row.first { margin-top: 9px; }
+  .row.inc { justify-content: flex-start; }
+  .row.out { justify-content: flex-end; }
+
+  .bubble {
+    max-width: 264px; padding: 8px 13px 9px;
+    border-radius: var(--radius);
+    font-size: var(--bubble-size); line-height: var(--bubble-lh);
+    letter-spacing: -0.35px; white-space: pre-wrap; word-wrap: break-word;
+    position: relative; z-index: 0;
+    background: var(--bub);
+  }
+  .row.out .bubble { --bub: var(--blue); color: #fff; }
+  .row.sms.out .bubble { --bub: var(--green); }
+  body.dark  .row.inc .bubble { --bub: var(--grey-dark); }
+  body.light .row.inc .bubble { --bub: var(--grey-light); }
+
+  /* The tail is a bubble-coloured blob hanging off the corner, with a
+     page-coloured block laid over its outer half. What survives is the pointed
+     hook plus the concave scoop underneath it — the same trick the real one
+     reads as. Only the last bubble of a same-sender run gets one.
+     The blob sits at z-index -1 so it hides behind the bubble's own background
+     where the two overlap, and so it can never cover the text. */
+  .bubble.tail::before, .bubble.tail::after {
+    content: ""; position: absolute; bottom: 0; height: 20px;
+  }
+  .bubble.tail::before { width: 20px; background: var(--bub); z-index: -1; }
+  .bubble.tail::after  { width: 10px; background: var(--page); z-index: 0; }
+
+  .row.out .bubble.tail::before { right: -8px;  border-bottom-left-radius: 15px; }
+  .row.out .bubble.tail::after  { right: -10px; border-bottom-left-radius: 10px; }
+  .row.inc .bubble.tail::before { left: -8px;   border-bottom-right-radius: 15px; }
+  .row.inc .bubble.tail::after  { left: -10px;  border-bottom-right-radius: 10px; }
+
+  #compose {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 96px;
+    padding: 8px 12px 0;
+    display: flex; align-items: flex-start; gap: 10px;
+    -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
+  }
+  body.dark  #compose { background: rgba(20,20,22,0.86); }
+  body.light #compose { background: rgba(249,249,249,0.9); }
+
+  #plus {
+    width: 34px; height: 34px; border-radius: 17px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+  }
+  body.dark  #plus { background: #2C2C2E; }
+  body.light #plus { background: #E4E4E6; }
+  #plus svg { width: 15px; height: 15px; }
+  body.dark  #plus path { fill: #AEAEB2; }
+  body.light #plus path { fill: #8E8E93; }
+
+  #field {
+    flex: 1 1 auto; height: 34px; border-radius: 17px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 6px 0 13px; font-size: 17px; letter-spacing: -0.35px;
+    color: #8E8E93;
+  }
+  body.dark  #field { border: 1px solid #3A3A3C; }
+  body.light #field { border: 1px solid #D1D1D6; }
+  #send {
+    width: 26px; height: 26px; border-radius: 13px; background: #48484A;
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
+  #send svg { width: 13px; height: 15px; fill: #fff; }
+
+  body.dark  #indicator { color: #fff; }
+  body.light #indicator { color: #000; }
+</style>
+</head>
+<body class="dark">
+<div id="screen">
+  <div id="nav">
+    <div id="back">
+      <svg viewBox="0 0 12 21"><path d="M11 1 1.5 10.5 11 20" stroke="currentColor" stroke-width="2.4"
+        fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span id="unread"></span>
+    </div>
+    <div id="peer">
+      <div id="avatar"></div>
+      <div id="peername"><span></span>
+        <svg viewBox="0 0 6 10"><path d="M1 1l4 4-4 4" stroke="currentColor" stroke-width="1.6"
+          fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div id="facetime">
+      <svg viewBox="0 0 27 17"><path fill="currentColor"
+        d="M3.2 0h11.1a3.2 3.2 0 0 1 3.2 3.2v10.6a3.2 3.2 0 0 1-3.2 3.2H3.2A3.2 3.2 0 0 1 0 13.8V3.2A3.2 3.2 0 0 1 3.2 0zm16.6 5.9 5.5-4c.7-.5 1.7 0 1.7.9v11.4c0 .9-1 1.4-1.7.9l-5.5-4z"/></svg>
+    </div>
+  </div>
+
+  <div id="thread"></div>
+
+  <div id="compose">
+    <div id="plus"><svg viewBox="0 0 15 15"><path d="M6.4 0h2.2v6.4H15v2.2H8.6V15H6.4V8.6H0V6.4h6.4z"/></svg></div>
+    <div id="field"><span>iMessage</span>
+      <div id="send"><svg viewBox="0 0 13 15"><path d="M6.5 15V3.2L2.3 7.4.9 6 6.5 0 12 6l-1.4 1.4-4.1-4.2V15z"/></svg></div>
+    </div>
+  </div>
+
+  <!--CHROME-->
+</div>
+
+<script>
+function render(cfg) {
+  document.body.className = cfg.theme || 'dark';
+
+  document.getElementById('sbtime').textContent = cfg.statusTime || '9:41';
+  document.getElementById('unread').textContent = cfg.unread ? String(cfg.unread) : '';
+  document.querySelector('#peername span').textContent = cfg.peer || '';
+
+  const av = document.getElementById('avatar');
+  if (cfg.peerImage) av.style.backgroundImage = `url("${cfg.peerImage}")`;
+  else av.textContent = (cfg.peerInitials != null ? cfg.peerInitials
+        : (cfg.peer || '').split(/\s+/).map(w => w[0] || '').slice(0, 2).join('').toUpperCase());
+
+  const r = document.documentElement.style;
+  for (const [k, v] of Object.entries(cfg.vars || {})) r.setProperty('--' + k, v);
+
+  const t = document.getElementById('thread');
+  t.innerHTML = '';
+  const msgs = cfg.messages || [];
+  msgs.forEach((m, i) => {
+    if (m.stamp) {
+      const s = document.createElement('div');
+      s.className = 'stamp';
+      s.innerHTML = m.stamp.replace(/^(\S+)/, '<b>$1</b>');
+      t.appendChild(s);
+      return;
+    }
+    const inc = !m.out;
+    const prev = msgs[i - 1];
+    const next = msgs[i + 1];
+    const first = !prev || prev.stamp || !!prev.out !== !!m.out;
+    const last = !next || next.stamp || !!next.out !== !!m.out;
+
+    const row = document.createElement('div');
+    row.className = 'row ' + (inc ? 'inc' : 'out') + (first ? ' first' : '') + (m.sms ? ' sms' : '');
+    const b = document.createElement('div');
+    b.className = 'bubble' + (last ? ' tail' : '');
+    b.textContent = m.text;
+    row.appendChild(b);
+    t.appendChild(row);
+
+    if (m.receipt) {
+      const rc = document.createElement('div');
+      rc.style.cssText = 'text-align:right;font-size:11px;color:#8E8E93;margin-top:3px;padding-right:3px';
+      rc.innerHTML = m.receipt.replace(/^(\S+)/, '<b style="font-weight:600">$1</b>');
+      t.appendChild(rc);
+    }
+  });
+
+  document.body.dataset.ready = '1';
+}
+</script>
+</body>
+</html>

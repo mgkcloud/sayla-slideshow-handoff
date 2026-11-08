@@ -1,0 +1,18 @@
+{
+  "screen": "imessage",
+  "theme": "dark",
+  "statusTime": "23:47",
+  "unread": 12,
+  "peer": "Gjyshja",
+  "peerInitials": "G",
+  "messages": [
+    { "stamp": "Sunday 21:04" },
+    { "text": "A po vjen me na pa?" },
+    { "text": "Nuk kam fol me ty prej dy javesh" },
+    { "text": "yes gjyshe soon" , "out": true },
+    { "stamp": "Today 23:41" },
+    { "text": "Sa mall qe kam per ty bir" },
+    { "text": "Kur ke me ardh?" },
+    { "text": "soon i promise", "out": true, "receipt": "Delivered" }
+  ]
+}

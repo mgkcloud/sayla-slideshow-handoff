@@ -1,0 +1,13 @@
+node_modules/
+__pycache__/
+*.pyc
+factory/drafts/
+factory/.staging-*/
+factory/graphify-out/
+.env
+.env.*
+*.key
+*.pem
+*.db
+*.sqlite*
+*.log

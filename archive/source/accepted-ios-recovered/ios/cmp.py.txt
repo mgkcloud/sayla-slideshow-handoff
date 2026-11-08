@@ -1,0 +1,75 @@
+"""Compare a render against the capture, element by element.
+
+Both sides are segmented with the same exact-fill rule and the same windows, so
+any difference is a real difference and not a measurement artefact. Line runs are
+read from a row profile of the text column rather than from fixed windows, which
+is what made the earlier numbers wrong.
+"""
+import sys
+
+import numpy as np
+from PIL import Image
+
+S = 3
+FILL = np.array([255, 232, 229], np.int16)
+REF = "<original-host-path>"
+
+
+def load(p):
+    return np.asarray(Image.open(p).convert("RGB")).astype(np.int16)
+
+
+def runs(img, top, bot, x0=72.0, x1=370.0, inset=8.0):
+    """Line runs in the text column of a card, as (ink top, ink bottom, x0, x1)."""
+    m = (np.abs(img[int((top + inset) * S):int((bot - inset) * S),
+                int(x0 * S):int(x1 * S)] - FILL).sum(axis=2) > 6)
+    prof = m.any(axis=1)
+    out, s = [], None
+    for i, v in enumerate(list(prof) + [False]):
+        if v and s is None:
+            s = i
+        elif not v and s is not None:
+            xs = np.where(m[s:i].any(axis=0))[0]
+            out.append((top + inset + s / S, top + inset + i / S,
+                        x0 + xs.min() / S, x0 + (xs.max() + 1) / S))
+            s = None
+    return out
+
+
+def box(img, y0, y1, x0, x1):
+    m = (np.abs(img[int(y0 * S):int(y1 * S), int(x0 * S):int(x1 * S)] - FILL).sum(axis=2) > 6)
+    if not m.any():
+        return None
+    ys, xs = np.where(m)
+    return (x0 + xs.min() / S, x0 + (xs.max() + 1) / S,
+            y0 + ys.min() / S, y0 + (ys.max() + 1) / S)
+
+
+def report(img, tag, top, bot):
+    print(f"-- {tag}   card {top:.2f} -> {bot:.2f}")
+    r = runs(img, top, bot)
+    for a, b, xa, xb in r:
+        print(f"   line  y {a:7.2f} -> {b:7.2f} (h {b-a:5.2f})   "
+              f"x {xa:7.2f} -> {xb:7.2f} (w {xb-xa:6.2f})")
+    if r:
+        a, b, _, _ = r[0]
+        for nm, xa, xb in (("title", 72, 220), ("when", 260, 370)):
+            bx = box(img, a - 1, b + 1, xa, xb)
+            if bx:
+                print(f"   {nm:6s} x {bx[0]:7.2f} -> {bx[1]:7.2f} (w {bx[1]-bx[0]:6.2f})   "
+                      f"y {bx[2]:7.2f} -> {bx[3]:7.2f} (h {bx[3]-bx[2]:5.2f})")
+    return r
+
+
+if __name__ == "__main__":
+    new = load(sys.argv[1] if len(sys.argv) > 1 else "/tmp/tt/parity.png")
+    ref = load(REF)
+    report(ref, "REF", 589.17, 694.50)
+    print()
+    report(new, "NEW", 589.17, 694.50)
+
+    print("\n-- header --")
+    for tag, img in (("REF", ref), ("NEW", new)):
+        bx = box(img, 545, 586, 20, 300)
+        print(f"   {tag} text  x {bx[0]:7.2f} -> {bx[1]:7.2f} (w {bx[1]-bx[0]:6.2f})   "
+              f"y {bx[2]:7.2f} -> {bx[3]:7.2f} (h {bx[3]-bx[2]:5.2f})")

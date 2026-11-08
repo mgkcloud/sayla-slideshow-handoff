@@ -1,0 +1,142 @@
+{
+  "concepts": [
+    {
+      "name": "w1",
+      "style": "imessage-notif",
+      "score": 95,
+      "verdict": "PASS",
+      "draft_config": {
+        "name": "the-phone-call",
+        "peer": "Gjyshja",
+        "hook": "she stopped calling because i always let it ring",
+        "arc": [
+          "hook",
+          "notification",
+          "imessage",
+          "payoff"
+        ],
+        "notification": {
+          "sender": "Gjyshja",
+          "app": "Messages",
+          "body": "A je gjall? Pse s’po merr?"
+        },
+        "thread": {
+          "peer": "Gjyshja",
+          "bubble_key": "imessage",
+          "lines": [
+            {
+              "dir": "in",
+              "text": "Nuk te mora malli?",
+              "lang": "sq"
+            },
+            {
+              "dir": "out",
+              "text": "Po nana, me fal",
+              "lang": "sq"
+            },
+            {
+              "dir": "in",
+              "text": "Mos me ler pa fjale",
+              "lang": "sq"
+            }
+          ]
+        },
+        "payoff": "sayla. it speaks gheg. started free.",
+        "caption": "i stopped avoiding the language that raised me #albanian #gheg #sayla #heritage"
+      }
+    },
+    {
+      "name": "w3",
+      "style": "imessage-notif",
+      "score": 94,
+      "verdict": "PASS",
+      "draft_config": {
+        "name": "the-dasme",
+        "peer": "Kushërrira",
+        "hook": "i understood one sentence at my cousin's wedding and it broke me",
+        "arc": [
+          "hook",
+          "notification",
+          "imessage",
+          "payoff"
+        ],
+        "notification": {
+          "sender": "Kushërrira",
+          "app": "Messages",
+          "body": "E dëgjove çfarë thanë për ty?"
+        },
+        "thread": {
+          "peer": "Kushërrira",
+          "bubble_key": "imessage",
+          "lines": [
+            {
+              "dir": "in",
+              "text": "A ke dëgjuar çka thanë?",
+              "lang": "sq"
+            },
+            {
+              "dir": "out",
+              "text": "E dëgjova, “Vajza e mikes tonë s’flet shqip”",
+              "lang": "sq"
+            },
+            {
+              "dir": "in",
+              "text": "Ajo është nana jote",
+              "lang": "sq"
+            }
+          ]
+        },
+        "payoff": "sayla. it speaks gheg. started free.",
+        "caption": "i understood them talking about me before i could talk back #albanian #gheg #sayla #diaspora"
+      }
+    },
+    {
+      "name": "w2",
+      "style": "authority-list",
+      "score": 92,
+      "verdict": "PASS",
+      "draft_config": {
+        "name": "five-phrases-nana",
+        "peer": "Nana",
+        "hook": "my nana only speaks gheg. these 5 phrases are the only ones that matter",
+        "arc": [
+          "hook",
+          "phrase",
+          "phrase",
+          "product",
+          "phrase",
+          "phrase"
+        ],
+        "product_position": 4
+      },
+      "phrase_slides": [
+        {
+          "text": "1. “Si je?” — not just how are you, but i see you",
+          "note": "the greeting that opens every door",
+          "product": false
+        },
+        {
+          "text": "2. “Sa mirë qe ke ardhur” — she has been waiting all week",
+          "note": "translate gives you “Sa mall qe kam për ty”. wrong language",
+          "product": false
+        },
+        {
+          "text": "3. “Më mori malli për ty” — sayla. it speaks gheg. started free.",
+          "note": "not a feature, just the thing that let her say it back",
+          "product": true
+        },
+        {
+          "text": "4. “A ke ngrënë?” — she means i love you",
+          "note": "every albanian grandma’s love language",
+          "product": false
+        },
+        {
+          "text": "5. “Të dua shumë” — the one you never want to translate",
+          "note": "say it back. out loud. today",
+          "product": false
+        }
+      ],
+      "caption": "5 phrases in gheg that mean more than any app taught me #albanian #gheg #nana #sayla"
+    }
+  ]
+}

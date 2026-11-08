@@ -1,0 +1,25 @@
+{
+ "date": "Saturday, August 1",
+ "time": "9:40",
+ "statusTime": "9:41",
+ "wallpaperColor": "#8fa3b8",
+ "scrim": 0.0,
+ "notifyTop": 250,
+ "hideChrome": true,
+ "notifications": [
+  {
+   "title": "Sam",
+   "when": "5 min ago",
+   "body": "i'm sorry\ni got married today and this is the last time i'll ever text you. i just needed you to know you were my first love, and some part of me will probably always belong to the girl who knew me before any of this. please don't answer. i know it's selfish. i just couldn't let today end without telling you. take care of yourself.",
+   "iconColor": "#3ad353",
+   "iconGlyph": "\u2709"
+  },
+  {
+   "title": "Huggers",
+   "when": "Just now",
+   "body": "Your heart's been working hard tonight. Your 2 minute reset is ready when you are.",
+   "iconColor": "#e8a33d",
+   "iconGlyph": "\ud83e\udde1"
+  }
+ ]
+}

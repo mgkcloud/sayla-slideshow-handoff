@@ -1,0 +1,119 @@
+"""Draw TikTok's native caption style over a finished image.
+
+The point of doing this here rather than in the prompt is that generated text is
+frozen: it cannot be corrected, re-cut or A/B tested, and image models render it
+in whatever grotesque they feel like rather than TikTok's caption font. Drawing
+it afterwards makes the copy a variable.
+
+Every measurement below was taken off a real high-performing carousel slide
+(millionairekeke1, 968x1212), not guessed:
+
+  line pitch      41px  = 4.24% of frame width
+  glyph height    ~22px = 2.3% of frame width  (so ~3.2% for the em)
+  padding         ~15px = 1.5% of frame width
+  widest block    424px = 43.8% of frame width
+  block left edge  10px = 1.0% of frame width
+
+Two details matter more than the numbers. The text is centre-aligned, and each
+line gets its own block sized to that line, so the left and right edges are both
+ragged — a single rectangle behind the whole paragraph is the giveaway of a fake.
+Consecutive blocks are drawn overlapping so they fuse into one shape, which is
+why a short last line reads as an isolated pill.
+
+TikTok sets captions in Proxima Nova. Avenir Next Demi Bold is the closest face
+present on macOS; it is a shade narrower, so measure before assuming a line fits.
+"""
+import pathlib
+
+from PIL import Image, ImageDraw, ImageFont
+
+FONT = "/System/Library/Fonts/Avenir Next.ttc"
+FONT_INDEX = 2           # Demi Bold; verified with face_names(), not guessed
+
+# All as a fraction of frame width, so the same numbers work at any resolution.
+#
+# Size is scene-dependent and there is no single right value. REFERENCE below
+# reproduces the measured slide to within a pixel, but that slide is a nine-line
+# confession and the size is what makes a paragraph fit. A three-line hook set at
+# the same size reads as a footnote. HOOK is the size a short caption needs to
+# carry at feed scale. Both are here so the measured number is not quietly lost.
+REFERENCE = 0.0325
+HOOK = 0.048
+EM = HOOK
+PITCH = EM * 1.305       # 41/31.5, the measured ratio of pitch to em
+PAD_X = 0.016
+RADIUS = 0.011
+MAX_W = 0.86             # the reference wraps at 0.44; short hook lines set with
+                         # explicit breaks want room, so this only catches runaways
+OVERLAP = 0.004          # vertical bleed so neighbouring blocks fuse
+
+
+def face_names(path=FONT):
+    """Print the ttc face index for each face, so FONT_INDEX is not a guess."""
+    for i in range(20):
+        try:
+            f = ImageFont.truetype(path, 40, index=i)
+        except Exception:                                    # noqa: BLE001
+            return
+        print(i, f.getname())
+
+
+def wrap(text, font, limit):
+    """Greedy wrap, but keep any line breaks the caller wrote by hand."""
+    out = []
+    for para in text.split("\n"):
+        words, line = para.split(), ""
+        for w in words:
+            trial = f"{line} {w}".strip()
+            if font.getlength(trial) <= limit or not line:
+                line = trial
+            else:
+                out.append(line)
+                line = w
+        out.append(line)
+    return out
+
+
+def draw(im, text, cx=0.30, top=0.63, align="centre"):
+    """Draw `text` on a copy of `im`.
+
+    cx  horizontal centre of the block column, as a fraction of width
+    top vertical start of the first block, as a fraction of height
+    """
+    im = im.convert("RGB").copy()
+    W, H = im.size
+    font = ImageFont.truetype(FONT, round(EM * W), index=FONT_INDEX)
+    pitch, pad = PITCH * W, PAD_X * W
+    radius, bleed = RADIUS * W, OVERLAP * W
+
+    lines = wrap(text, font, MAX_W * W - pad * 2)
+    d = ImageDraw.Draw(im)
+    x0, y0 = cx * W, top * H
+
+    boxes = []
+    for i, line in enumerate(lines):
+        tw = font.getlength(line)
+        bw = tw + pad * 2
+        left = x0 - bw / 2 if align == "centre" else x0
+        top_y = y0 + i * pitch
+        boxes.append((left, top_y, left + bw, top_y + pitch, line, tw))
+
+    # Blocks first, all of them, so the overlaps fuse before any glyph lands.
+    for left, t, right, b, _, _ in boxes:
+        d.rounded_rectangle((left, t - bleed, right, b + bleed), radius=radius,
+                            fill=(0, 0, 0))
+    for left, t, right, b, line, tw in boxes:
+        d.text(((left + right) / 2 - tw / 2, t + pitch * 0.5), line,
+               font=font, fill=(255, 255, 255), anchor="lm")
+    return im
+
+
+if __name__ == "__main__":
+    import sys
+    if sys.argv[1:2] == ["faces"]:
+        face_names()
+        raise SystemExit
+    src = pathlib.Path(sys.argv[1])
+    out = draw(Image.open(src), sys.argv[2])
+    out.save(sys.argv[3])
+    print(f"wrote {sys.argv[3]} {out.size}")

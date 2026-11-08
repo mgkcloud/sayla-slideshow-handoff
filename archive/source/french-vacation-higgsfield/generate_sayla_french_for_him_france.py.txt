@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""Generate per-slide Sophia/Sayla France vacation carousel with identity refs."""
+import json, subprocess, urllib.request, datetime, os, re, time
+from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+
+BASE = Path('<original-host-path>')
+OUT = BASE/'carousels/sayla_french_for_him_france_vacation_generated'
+RAW = OUT/'raw'
+OUT.mkdir(parents=True, exist_ok=True); RAW.mkdir(exist_ok=True)
+REFS = [BASE/'character/references/ref_01.png', BASE/'character/references/ref_02.png']
+FONT_BOLD = Path('<original-host-path>')
+FONT_REG = Path('<original-host-path>')
+if not FONT_BOLD.exists(): FONT_BOLD = Path('/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf')
+if not FONT_REG.exists(): FONT_REG = Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
+
+W,H = 1080,1920
+IDENTITY = """Sophia from the provided reference images, preserve full Sophia character identity and all permanent facial features: soft oval/inverted-heart face, warm golden-brown skin, dark brown eyes, natural soft-arch brows, fleshy soft button nose with rounded slightly upturned tip, full lips with naturally fuller lower lip, cheek-forward facial structure, natural asymmetry, dark chocolate hair color and texture. Do not change ethnicity, face shape, age, hair color, facial structure, or core character continuity. Photogenic enhancement only, preserve natural pores, facial microtexture, fine vellus hair, realistic skin, natural asymmetry, non-plastic face."""
+STYLE = """raw high-fidelity iPhone 17 Pro style photograph, 9:16 vertical, 24mm wide-angle phone lens, authentic digital grain, realistic phone-camera exposure rolloff, natural optical bokeh, luxury vacation candid, harsh direct phone flash mixed with warm ambient practical lights, wet-gloss skin highlights only where natural, cinematic but native TikTok realism, no overlay text inside the image, no watermark, no logos except tiny generic fashion hardware if present."""
+NEG = """Negative prompt: generic woman, changed face, changed ethnicity, changed hair color, altered Sophia identity, plastic skin, waxy skin, over-smoothed face, fake pores, extra fingers, broken hands, distorted eyes, duplicate limbs, unrealistic anatomy, cartoon, CGI, airbrushed glamour render, doll face, oversaturated skin, heavy beauty filter, blurry face, low-resolution, watermark, text artifacts, erotic pose, lingerie, bikini, cleavage emphasis, voyeur framing, underage, drunk, messy party scene."""
+
+SLIDES = [
+    {
+        'id':'paris_arrival',
+        'text':'i started learning french for him',
+        'scene':"Sophia on vacation in Paris at dusk, standing outside a tiny warm-lit cafe near cobblestone street, suitcase just out of frame, wearing chic black one-shoulder athletic bodysuit styled under an oversized cream linen shirt, gold jewelry, damp glossy hair from light rain, Eiffel Tower glow faintly blurred far in background, direct flash catches her eyes, confident direct eye contact, half-smile like she has a secret, premium travel-photo realism."
+    },
+    {
+        'id':'voice_note_balcony',
+        'text':'then he replied in voice notes',
+        'scene':"Sophia on a small French hotel balcony at night in Nice, Mediterranean sea lights behind her, phone in hand near her chest as if listening to a voice note, warm amber balcony lamp and cool teal moonlit sea, black night sky, cream stone railing, sleek wet hair over shoulders, direct flash, expression frozen mid-realization, chic vacation outfit, non-explicit elegant posture."
+    },
+    {
+        'id':'french_menu_panic',
+        'text':'and suddenly duo wasn’t enough',
+        'scene':"Sophia seated at an outdoor Paris bistro table at night, French menu and small espresso cup on marble table, candlelight, rain-speckled glass, street lamps and scooters blurred behind her, one hand lightly touching the menu like she can read words but cannot speak them, direct flash, subtle embarrassed smile, luxury candid vacation realism, black tailored top, gold earrings."
+    },
+    {
+        'id':'seine_speaking',
+        'text':'i needed to actually speak',
+        'scene':"Sophia walking beside the Seine at night, Pont Alexandre III style lamps glowing behind her, calm river reflections, slightly high-angle phone flash portrait while she records herself speaking into her phone, lips slightly parted mid-practice, confident but nervous, sleek dark hair, black athletic-luxe outfit with cream coat over shoulders, natural city motion blur in background, subject sharp."
+    },
+    {
+        'id':'sayla_payoff_provence',
+        'text':'sayla made me practice until i stopped freezing',
+        'scene':"Sophia in a sun-warmed Provence village courtyard during blue hour after dinner, warm string lights, stone walls, lavender pot and tiny cafe table, phone resting face-up with an indistinct language practice screen glow but no readable UI, Sophia looking relieved and proud after practicing out loud, direct flash, dewy skin, calm smile, elegant black vacation outfit, authentic influencer travel photo realism."
+    },
+]
+
+def run_higgsfield(slide):
+    prompt = f"{IDENTITY}\n\nScene: {slide['scene']}\n\nStyle: {STYLE}\n\n{NEG}"
+    prompt_path = OUT/f"prompt_{slide['id']}.txt"
+    prompt_path.write_text(prompt)
+    log_path = OUT/f"higgsfield_{slide['id']}.log"
+    cmd = [
+        'higgsfield','generate','create','nano_banana_2',
+        '--image',str(REFS[0]),'--image',str(REFS[1]),
+        '--aspect_ratio','9:16','--resolution','2k',
+        '--wait','--wait-timeout','20m'
+    ]
+    print(f"=== generating {slide['id']} ===", flush=True)
+    with open(prompt_path,'rb') as stdin, open(log_path,'w') as log:
+        proc = subprocess.run(cmd, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=1500)
+        log.write(proc.stdout)
+    urls = re.findall(r'https?://\S+', proc.stdout)
+    if proc.returncode != 0 or not urls:
+        raise RuntimeError(f"higgsfield failed for {slide['id']}: {proc.stdout[-1000:]}")
+    url = urls[-1].strip()
+    raw = RAW/f"{slide['id']}.png"
+    req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0'})
+    raw.write_bytes(urllib.request.urlopen(req, timeout=180).read())
+    return url, raw, prompt
+
+def fit_cover(im):
+    im = im.convert('RGB')
+    iw,ih = im.size
+    s = max(W/iw,H/ih)
+    im = im.resize((int(iw*s), int(ih*s)), Image.LANCZOS)
+    return im.crop(((im.width-W)//2, (im.height-H)//2, (im.width-W)//2+W, (im.height-H)//2+H))
+
+def wrap(text, font, max_w):
+    d = ImageDraw.Draw(Image.new('RGB',(10,10)))
+    words = text.lower().split(); lines=[]; cur=''
+    for w in words:
+        t=(cur+' '+w).strip()
+        if d.textbbox((0,0),t,font=font,stroke_width=0)[2] <= max_w:
+            cur=t
+        else:
+            if cur: lines.append(cur)
+            cur=w
+    if cur: lines.append(cur)
+    return lines
+
+def overlay(im, text, y):
+    im = fit_cover(im)
+    im = ImageEnhance.Contrast(im).enhance(1.06)
+    im = ImageEnhance.Color(im).enhance(1.04).convert('RGBA')
+    # top/bottom vignette only; no card/box
+    shade = Image.new('RGBA',(W,H),(0,0,0,0)); sd=ImageDraw.Draw(shade)
+    for yy in range(H):
+        a=0
+        if yy < 690: a=max(a, int(58*(1-yy/690)))
+        if yy > 1240: a=max(a, int(42*((yy-1240)/(H-1240))))
+        if a: sd.line((0,yy,W,yy), fill=(0,0,0,a))
+    im.alpha_composite(shade)
+    d=ImageDraw.Draw(im)
+    size=78
+    while size >= 46:
+        font=ImageFont.truetype(str(FONT_BOLD), size)
+        lines=wrap(text,font,900)
+        lh=int(size*1.08); total=lh*len(lines)
+        if total < 430: break
+        size -= 4
+    # soft behind text, still not a card
+    halo=Image.new('RGBA',(W,H),(0,0,0,0)); hd=ImageDraw.Draw(halo)
+    cy=y+total//2
+    for r,a in [(410,18),(310,26),(220,36)]:
+        hd.ellipse((W//2-r,cy-r,W//2+r,cy+r), fill=(0,0,0,a))
+    im.alpha_composite(halo)
+    d=ImageDraw.Draw(im)
+    yy=y
+    for line in lines:
+        bbox=d.textbbox((0,0), line, font=font, stroke_width=7)
+        x=(W-(bbox[2]-bbox[0]))//2
+        d.text((x,yy), line, font=font, fill=(255,255,255,255), stroke_width=7, stroke_fill=(0,0,0,245))
+        yy += lh
+    return im.convert('RGB')
+
+def contact_sheet(paths):
+    TW,TH=216,384
+    sheet=Image.new('RGB',(TW*5+60,TH+74),(10,10,12)); d=ImageDraw.Draw(sheet)
+    f=ImageFont.truetype(str(FONT_REG),24)
+    for i,p in enumerate(paths,1):
+        img=Image.open(p).resize((TW,TH),Image.LANCZOS)
+        x=10+(i-1)*(TW+10)
+        sheet.paste(img,(x,10)); d.text((x+8,TH+25),f'slide {i}',font=f,fill=(235,230,225))
+    out=OUT/'carousel_preview.jpg'; sheet.save(out,quality=92); return out
+
+manifest={'created':datetime.datetime.utcnow().isoformat()+'Z','status':'started','slides':[],'posting':'review-only, not posted'}
+(OUT/'manifest.json').write_text(json.dumps(manifest,indent=2))
+finals=[]
+y_positions=[235,235,245,1180,210]
+for idx,slide in enumerate(SLIDES,1):
+    rec={**slide}
+    try:
+        url, raw, prompt = run_higgsfield(slide)
+        final=OUT/f"slide_{idx:02d}_final.jpg"
+        overlay(Image.open(raw), slide['text'], y_positions[idx-1]).save(final, quality=95, subsampling=1)
+        rec.update({'status':'completed','url':url,'raw_path':str(raw),'final_path':str(final),'prompt_path':str(OUT/f"prompt_{slide['id']}.txt")})
+        finals.append(final)
+    except Exception as e:
+        rec.update({'status':'failed','error':str(e)})
+        print('FAILED', slide['id'], e, flush=True)
+    manifest['slides'].append(rec)
+    (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2))
+
+if finals:
+    preview=contact_sheet(finals)
+    manifest['preview']=str(preview)
+manifest['status']='completed' if len(finals)==len(SLIDES) else 'partial'
+(OUT/'manifest.json').write_text(json.dumps(manifest,indent=2))
+print('PREVIEW', manifest.get('preview'))
+print('OUT', OUT)

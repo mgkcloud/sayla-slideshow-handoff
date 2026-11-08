@@ -1,0 +1,699 @@
+#!/usr/bin/env python3
+"""Build ONE coherent viral-style slideshow: a girl's trip listicle where the app
+is a single tip among many. Every slide is generated from a real viral frame
+(data/ref_frames) used as the composition/lighting reference, so the set inherits
+authentic phone-camera framing instead of looking like stock AI art.
+
+  python3 slideshow_set.py --render
+  python3 slideshow_set.py --render --only 3,7      # re-render single slides
+  python3 slideshow_set.py --self-test
+"""
+import argparse, base64, io, json, re, sys, time
+from pathlib import Path
+
+import requests
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
+
+BASE = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE / 'content-radar'))
+
+REF_FRAMES = BASE / 'data' / 'ref_frames'
+SIGNAL_PATH = BASE / 'carousels' / 'sayla-signal.json'
+FACE_REFS = sorted((BASE / 'character' / 'references').glob('ref_0*.png'))[:2]
+OUT = BASE / 'carousels' / 'slideshows'
+APP_SHOT = Path('<original-host-path>')
+
+W, H = 1080, 1920
+
+GIRL = ('a woman in her late 20s with dark chocolate wavy hair, warm golden-brown skin, '
+        'dark brown eyes, no glasses, minimal jewellery')
+# Anti-AI-look clause. Naming the phone and the flaws beats "photorealistic 8K", which
+# reliably pushes these models toward glossy CGI.
+REAL = ('Shot on an iPhone 15 Pro, 26mm, f/1.8, natural available light only. Handheld with a '
+        'slight tilt and casual off-centre framing. Visible skin texture, pores and flyaway hairs. '
+        'Mild noise in the shadows, slightly imperfect exposure, one or two blown highlights. '
+        'No studio lighting, no beauty filter, no retouching, no bokeh from a fast lens. '
+        'Looks like an unposed snapshot from a personal camera roll. '
+        'Surfaces are clean, with no stray hairs, threads or fibres. '
+        'No text, no captions, no watermarks, no logos, no brand names.')
+
+# A blank screen is what makes detect_screen work; the real screenshot is warped in after.
+PHONE = ('the screen switched on but showing only a plain blank off-white interface, '
+         'the phone large and clearly readable in frame')
+
+# Frame pools are filenames, not indices — new harvests must not shift existing picks.
+REF_POOL = {}  # <PROTECTED_REFERENCE_POOL_OMITTED>
+
+# Each concept is one slideshow: a listicle of general girl-stuff tips where Sayla is
+# exactly one tip. One girl, one place, one palette across every slide.
+CONCEPTS = {
+ 'spain_packing': dict(
+  trip=('late-summer trip to Andalusia, southern Spain. Warm terracotta, sun-bleached white, '
+        'olive green and faded denim palette. Strong Mediterranean daylight.'),
+  slides=[
+   dict(n=1, ref='cover', person=True,
+        subject='walking away from camera along a narrow whitewashed alley in a hillside town, '
+                'white linen dress, tan sandals, small crossbody bag, late afternoon sun',
+        overlay="9 things i took to spain that i'd take again"),
+   dict(n=2, ref='suitcase', person=False,
+        subject='an open carry-on suitcase on a hotel bed, packed with three fabric packing cubes, '
+                'a rolled striped tank and a pair of tan sandals tucked at the edge',
+        overlay='1. packing cubes. genuinely not going back'),
+   dict(n=3, ref='clothing', person=False,
+        subject='a single white linen dress laid flat on rumpled white hotel sheets, morning light '
+                'from a window on the left',
+        overlay='2. one dress that works for dinner and a 6am flight'),
+   dict(n=4, ref='object', person=False,
+        subject='a bottle of sunscreen and a pair of tortoiseshell sunglasses lying on a rumpled '
+                'striped beach towel, harsh midday sun, hard shadows',
+        overlay='3. spf you will actually reapply'),
+   dict(n=5, ref='person', person=True,
+        subject='sitting at a small outdoor café table in a shaded plaza, looking down at her phone, '
+                'a cortado and a paper napkin on the table',
+        overlay='4. offline maps. there is no signal in the old town'),
+   dict(n=6, ref='object', person=False,
+        subject='a scuffed refillable water bottle standing on a warm stone ledge overlooking '
+                'terracotta rooftops',
+        overlay='5. a bottle with a filter in the lid'),
+   dict(n=7, ref='hand', person=False, screen=True,
+        subject='a phone lying flat on a weathered orange café table next to a half-drunk cortado, '
+                'a crumpled napkin and a pair of sunglasses, photographed from above at a slight '
+                f'angle, {PHONE}, a womans forearm resting at the edge of frame',
+        overlay='6. sayla. practiced ordering out loud on the flight over and it actually stuck'),
+   dict(n=8, ref='object', person=False,
+        subject='a pair of well-worn tan leather sandals left by a doorway on old terracotta tiles',
+        overlay='7. sandals you can do 20k steps in'),
+   dict(n=9, ref='object', person=False,
+        subject='a small brown leather crossbody bag with a zip, hanging on the back of a wooden '
+                'café chair',
+        overlay='8. a crossbody that actually zips'),
+   dict(n=10, ref='cover', person=True,
+        subject='sitting on a rooftop terrace at golden hour, elbows on the wall, looking out over '
+                'the town, half-smiling, not looking at the camera',
+        overlay='9. one day with zero plans. best day of the trip'),
+  ]),
+
+ 'meeting_family': dict(
+  trip=('a first visit to her boyfriends family home in a small town in northern Spain, early '
+        'autumn. Warm amber lamplight, terracotta tile, dark wood, green houseplants and worn '
+        'linen. Soft indoor light, overcast daylight through windows.'),
+  slides=[
+   dict(n=1, ref='arrivals', person=True,
+        subject='standing in a doorway holding a wrapped bunch of flowers and a small overnight bag, '
+                'coat still on, looking slightly nervous, hallway light behind her',
+        overlay='8 things that got me through meeting his family (i barely speak spanish)'),
+   dict(n=2, ref='object', person=False,
+        subject='a bunch of supermarket flowers still in their paper sleeve lying on a car passenger '
+                'seat next to a set of keys',
+        overlay='1. bring something. anything. flowers are fine'),
+   dict(n=3, ref='kitchen', person=False,
+        subject='a cluttered family kitchen counter mid-cooking, a pan on the hob, chopped tomatoes '
+                'on a wooden board, two mismatched mugs, steam',
+        overlay='2. offer to help in the kitchen even if you are useless'),
+   dict(n=4, ref='tidy', person=False, screen=True,
+        subject='a phone lying on a wooden nightstand beside a small lamp, a glass of water and a '
+                'folded jumper in a guest bedroom, photographed from above at a slight '
+                f'angle, {PHONE}',
+        overlay='3. sayla. i practiced saying nice to meet you out loud for a week first'),
+   dict(n=5, ref='talking', person=True,
+        subject='sitting on a sofa in a lived-in living room turned toward someone off-camera, '
+                'mid-sentence, laughing at herself, a cup of coffee in her hands',
+        overlay='4. say the sentence badly instead of not saying it'),
+   dict(n=6, ref='dinner', person=False, crowd=True,
+        subject='a crowded family dinner table shot from a seated eye level, half-eaten plates, '
+                'wine glasses, bread, hands reaching across, nobody posing',
+        overlay='5. dinner goes for three hours. eat slowly'),
+   dict(n=7, ref='object', person=False,
+        subject='a small notebook open on a kitchen table with a pen resting in the fold, next to a '
+                'cup of coffee, natural window light',
+        overlay='6. write down the words they keep repeating'),
+   dict(n=8, ref='doorway', person=False,
+        subject='an open front door of an old townhouse looking out onto a quiet narrow street, '
+                'overcast morning, worn stone step',
+        overlay='7. go for a walk alone once a day. it resets everything'),
+   dict(n=9, ref='talking', person=True,
+        subject='standing in a hallway hugging goodbye, half out of frame, coat on, warm indoor light',
+        overlay='8. they do not care that you are bad at it. they care that you tried'),
+  ]),
+
+ 'sunday_reset': dict(
+  trip=('a slow sunday in a small rented apartment in Lisbon. White linen, pale oak, cream walls, '
+        'one green plant, soft overcast morning light through a tall window. Muted and airy.'),
+  slides=[
+   dict(n=1, ref='bedroom', person=True,
+        subject='sitting on the edge of an unmade bed in a jumper and shorts, hair up, holding a mug, '
+                'looking out of frame toward a window',
+        overlay='my sunday reset in lisbon (7 things, none of them a 5am routine)'),
+   dict(n=2, ref='tidy', person=False,
+        subject='a pile of folded laundry on a chair next to an open wardrobe, morning light, '
+                'a jumper half folded',
+        overlay='1. one load of washing. not the whole flat'),
+   dict(n=3, ref='breakfast', person=False,
+        subject='a plate of toast and a boiled egg on a small kitchen table with a mug of coffee and '
+                'a crumpled tea towel, window light from the left',
+        overlay='2. eat a real breakfast sitting down'),
+   dict(n=4, ref='tidy', person=False, screen=True,
+        subject='a phone lying on a white linen duvet next to a half-finished mug of coffee and a '
+                'paperback, photographed from directly above at a slight tilt, '
+                f'{PHONE}',
+        overlay='3. sayla. ten minutes of talking out loud while the coffee cools'),
+   dict(n=5, ref='tidy', person=False,
+        subject='a cleared kitchen counter with a cloth draped over the tap, a drying rack with two '
+                'plates, soft grey morning light',
+        overlay='4. clear one surface completely. just one'),
+   dict(n=6, ref='town', person=True,
+        subject='walking a quiet residential street with a tote bag of groceries, pastel buildings, '
+                'flat overcast light, not looking at the camera',
+        overlay='5. walk to the shop instead of ordering it'),
+   dict(n=7, ref='object', person=False,
+        subject='an open notebook and a pen on a white linen bed next to a phone lying face down, '
+                'soft natural window light',
+        overlay='6. write down the three things you are actually dreading'),
+   dict(n=8, ref='bedroom', person=True,
+        subject='lying on freshly made bed reading a paperback in the late afternoon, lamp on, '
+                'window light fading',
+        overlay='7. get in bed early and be smug about it'),
+  ]),
+
+ 'moving_abroad': dict(
+  trip=('the first months living in a small inland town in Spain. Sun-bleached ochre walls, dusty '
+        'blue shutters, hard midday shadows and pale washed-out sky. Slightly dusty and lived-in.'),
+  slides=[
+   dict(n=1, ref='town', person=True,
+        subject='standing on a quiet street looking up at an apartment building with blue shutters, '
+                'holding a set of keys, harsh midday sun',
+        overlay='8 things nobody told me before i moved to spain'),
+   dict(n=2, ref='doorway', person=False,
+        subject='a heavy old wooden front door with peeling paint and a worn brass handle, hard '
+                'sunlight across it',
+        overlay='1. everything closes from 2 to 5 and you will forget every time'),
+   dict(n=3, ref='kitchen', person=False,
+        subject='a nearly empty rental kitchen with one pan, two mugs and a bag of rice on the '
+                'counter, bright flat daylight',
+        overlay='2. you will own nothing for a month. it is fine'),
+   dict(n=4, ref='breakfast', person=False, screen=True,
+        subject='a phone lying on a small marble café table beside a folded appointment letter, a '
+                'set of keys and a glass of coffee, indoors near a sunlit window, photographed from '
+                f'above at a slight angle, {PHONE}',
+        overlay='3. sayla. i practiced the bank appointment out loud before i went. saved me'),
+   dict(n=5, ref='pov', person=False,
+        subject='a point of view shot walking a narrow sunlit street holding a paper bag of bread, '
+                'own shoes visible at the bottom of frame',
+        overlay='4. buy bread at the same place until they know your face'),
+   dict(n=6, ref='object', person=False,
+        subject='a cortado in a small glass on a metal café table with a paper receipt tucked under '
+                'the saucer, hard shadow across the table',
+        overlay='5. coffee costs 1.40 and you sit there for an hour'),
+   dict(n=7, ref='object', person=False,
+        subject='a small outdoor restaurant table at night with two plates of simple food, a bottle '
+                'of water and a basket of bread, lit by a warm overhead bulb, shot from seated height',
+        overlay='6. nobody eats dinner before nine. stop fighting it'),
+   dict(n=8, ref='town', person=True,
+        subject='sitting on a stone step in the shade scrolling a phone, bag beside her, '
+                'washed out afternoon light',
+        overlay='7. the loneliness peaks at week six and then it lifts'),
+   dict(n=9, ref='doorway', person=True,
+        subject='leaning in an open doorway looking out at the street at golden hour, relaxed, '
+                'not looking at the camera',
+        overlay='8. you will not feel local for a year. go anyway'),
+  ]),
+
+ 'fluency_routine': dict(
+  trip=('a quiet flat in early autumn, studying a language while working. Warm neutrals, paper, '
+        'an amber desk lamp, oat and grey textiles, weak afternoon sun. Calm and unstyled.'),
+  slides=[
+   dict(n=1, ref='talking', person=True,
+        subject='sitting at a small desk turned toward the window mid-sentence talking to herself, '
+                'headphones around her neck, notebook open',
+        overlay='6 things that made me stop freezing mid sentence'),
+   dict(n=2, ref='handsbed', person=False,
+        subject='an open notebook covered in messy handwritten phrases with a pen across it, '
+                'warm lamplight from the right',
+        overlay='1. write the sentences you actually needed that week'),
+   dict(n=3, ref='pov', person=False, screen=True,
+        subject='a phone propped against a stack of books on a desk beside a mug and a pair of '
+                'headphones, photographed at a slight angle from above, '
+                f'{PHONE}',
+        overlay='2. sayla. ten minutes a day talking out loud, even badly'),
+   dict(n=4, ref='breakfast', person=False,
+        subject='a mug of tea going cold next to an open laptop on a kitchen table, weak afternoon '
+                'sun across the surface',
+        overlay='3. do it at the same time every day or it does not happen'),
+   dict(n=5, ref='talking', person=True,
+        subject='on a video call laughing and covering her face with one hand, laptop screen glow, '
+                'lamp on behind her',
+        overlay='4. get one real conversation a week. it is horrible then it is not'),
+   dict(n=6, ref='tidy', person=False,
+        subject='a small stack of sticky notes with single handwritten words stuck along the edge of '
+                'a bookshelf, soft daylight',
+        overlay='5. label the ten objects you touch every day'),
+   dict(n=7, ref='dinner', person=True,
+        subject='ordering at a small counter, one hand pointing at a menu board, half turned away '
+                'from camera, warm interior light',
+        overlay='6. order out loud in public. that is the whole exam'),
+  ]),
+}
+
+
+def frames():
+    return sorted(REF_FRAMES.glob('*.jpg'))
+
+
+def signal_terms(language='albanian'):
+    """Bounded Sayla vocabulary for authoring the one Sayla tip and its hashtags.
+
+    A language picks one pack from the schemaVersion 2 file. It defaults to the
+    albanian pack (the original vocabulary). Each pack is inspiration only: the
+    file carries no popularity, trend, rank, or performance claim, and a missing
+    or malformed file must never block a render (fail-safe to an empty list).
+    """
+    try:
+        data = json.loads(SIGNAL_PATH.read_text())
+    except (OSError, ValueError):
+        return []
+    if data.get('source') != 'Megaphone' or data.get('scope') != 'Sayla':
+        return []
+
+    def _claim_free(doc):
+        claims = doc.get('claims') or {}
+        return not (claims.get('popularity') or claims.get('trending'))
+
+    if not _claim_free(data):
+        return []
+
+    if data.get('schemaVersion') == 2:
+        packs = data.get('packs') or {}
+        pack = packs.get(language) or {}
+    else:
+        # schemaVersion 1: a single flat term list, treated as the albanian pack.
+        pack = data if language == 'albanian' else {}
+
+    if not _claim_free(pack):
+        return []
+    terms = pack.get('terms') or []
+    out = []
+    for entry in terms:
+        if isinstance(entry, dict) and isinstance(entry.get('term'), str):
+            out.append(entry['term'].strip().lower())
+    return sorted(set(out))
+
+
+def ref_for(slide, offset=0):
+    pool = REF_POOL[slide['ref']]
+    return REF_FRAMES / pool[(slide['n'] + offset) % len(pool)]
+
+
+def data_uri(path, maxdim=1024):
+    im = Image.open(path).convert('RGB')
+    im.thumbnail((maxdim, maxdim))
+    buf = io.BytesIO()
+    im.save(buf, 'JPEG', quality=92)
+    return 'data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+
+def prompt_for(slide, trip):
+    if slide['person']:
+        return (f"Use the first image only as a reference for camera angle, framing, lighting and "
+                f"photo quality. Create a new photo of the woman from the other reference images, "
+                f"{slide['subject']}. She is {GIRL}. {trip} {REAL}")
+    return (f"Use the first image only as a reference for camera angle, framing, lighting and photo "
+            # Deliberately NOT "no people/hands/arms" — these models render negated nouns, and that
+            # phrasing kept summoning a stranger into flat-lay shots. Positive framing instead.
+            f"quality. Create a still-life photograph of {slide['subject']}. The frame contains "
+            f"only these objects and the surface they rest on. {trip} {REAL}")
+
+
+def generate(slide, trip, out_path, offset=0):
+    from llm_client import _fal_key
+    srcs = [ref_for(slide, offset)] + (FACE_REFS if slide['person'] else [])
+    r = requests.post('https://fal.run/fal-ai/bytedance/seedream/v4/edit',
+                      headers={'Authorization': f'Key {_fal_key()}'},
+                      json={'prompt': prompt_for(slide, trip),
+                            'image_urls': [data_uri(p) for p in srcs],
+                            'num_images': 1, 'image_size': {'width': 768, 'height': 1344}},
+                      timeout=300)
+    r.raise_for_status()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(requests.get(r.json()['images'][0]['url'], timeout=120).content)
+    return out_path
+
+
+def has_face(img):
+    """Object slides keep getting a stranger rendered into them, at random. Cheap gate so a
+    bad generation is retried instead of shipped — eyeballing 40 slides missed it four times."""
+    import cv2
+    import numpy as np
+    g = cv2.cvtColor(np.asarray(img.convert('RGB')), cv2.COLOR_RGB2GRAY)
+    g = cv2.equalizeHist(g)
+    for name in ('haarcascade_frontalface_default.xml', 'haarcascade_profileface.xml'):
+        c = cv2.CascadeClassifier(cv2.data.haarcascades + name)
+        for flip in (g, cv2.flip(g, 1)):  # profile cascade only matches one direction
+            # 14 neighbours, tuned: below that it fires on houseplants and mug rims
+            if len(c.detectMultiScale(flip, 1.1, 14, minSize=(60, 60))):
+                return True
+    return False
+
+
+def _quad(p):
+    """Four corners of a tilted rectangle = the extreme point along each axis."""
+    return [tuple(p[p[:, 0].argmin()]), tuple(p[p[:, 1].argmin()]),
+            tuple(p[p[:, 0].argmax()]), tuple(p[p[:, 1].argmax()])]
+
+
+def _orient(q):
+    """Rotate the cyclic corner list so it starts at the screen's top-left.
+
+    paste_screen maps the screenshot's top edge onto q[0]->q[1], so that edge has to be the
+    phone's short top edge. Which extreme point lands first depends on which way the phone is
+    tilted, and getting it wrong pastes the app sideways.
+    """
+    import numpy as np
+    a = [np.array(c, float) for c in q]
+    edge = [np.hypot(*(a[(i + 1) % 4] - a[i])) for i in range(4)]
+    # the two short edges are opposite each other; the higher one is the top of the phone
+    k = min((i for i in range(4) if edge[i] <= sorted(edge)[1]),
+            key=lambda i: (a[i][1] + a[(i + 1) % 4][1]) / 2)
+    return [q[(k + i) % 4] for i in range(4)]
+
+
+def detect_screen(img):
+    """Locate the blank phone screen among bright near-neutral blobs.
+
+    Picking the *largest* such blob only worked when the scene was dark terracotta — white
+    bedding, a bright sky or a sheet of paper all beat the screen on area. So score by
+    phone-shapedness instead: a screen is a well-filled parallelogram at roughly 2:1.
+    """
+    import numpy as np
+    from scipy import ndimage
+    a = np.asarray(img.convert('RGB')).astype(int)
+    total = a.shape[0] * a.shape[1]
+    mask = (a.min(2) > 115) & ((a.max(2) - a.min(2)) < 60)
+    lab, n = ndimage.label(mask)
+    if not n:
+        return None
+    best, best_rect = None, 0.0
+    for i, area in enumerate(ndimage.sum(mask, lab, range(1, n + 1)), 1):
+        if not 0.005 * total < area < 0.16 * total:
+            continue
+        ys, xs = np.nonzero(lab == i)
+        q = _quad(np.stack([xs, ys], 1))
+        x, y = np.array([c[0] for c in q]), np.array([c[1] for c in q])
+        qa = 0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+        if qa <= 0:
+            continue
+        fill = area / qa
+        e = [float(np.hypot(*(np.array(q[j]) - np.array(q[(j + 1) % 4])))) for j in range(4)]
+        s1, s2 = (e[0] + e[2]) / 2, (e[1] + e[3]) / 2
+        if min(s1, s2) <= 0:
+            continue
+        ratio = max(s1, s2) / min(s1, s2)
+        # opposite sides must roughly match, or it is a triangle/wedge, not a screen
+        skew = max(abs(e[0] - e[2]) / max(e[0], e[2]), abs(e[1] - e[3]) / max(e[1], e[3]))
+        rect = 1 - abs(1 - fill)  # the extreme-point quad can slightly over- or under-cut
+        if rect < 0.75 or not 1.75 < ratio < 2.75 or skew > 0.35:
+            continue
+        if rect > best_rect:
+            best, best_rect = q, rect
+    return _orient(best) if best else None
+
+
+def paste_screen(base, quad, shot_path):
+    """Warp a real app screenshot onto the phone screen. Generated UI is always gibberish
+    at this resolution, and gibberish is the single clearest tell that an image is AI."""
+    import numpy as np
+    from PIL import ImageEnhance, ImageFilter
+    shot = Image.open(shot_path).convert('RGB')
+    shot = ImageEnhance.Contrast(shot).enhance(1.18)
+    shot = ImageEnhance.Color(shot).enhance(1.15)
+    shot = ImageEnhance.Brightness(shot).enhance(1.08)
+    src = [(0, 0), (shot.width, 0), (shot.width, shot.height), (0, shot.height)]
+    m, b = [], []
+    for (dx, dy), (sx, sy) in zip(quad, src):
+        m.append([dx, dy, 1, 0, 0, 0, -sx * dx, -sx * dy])
+        m.append([0, 0, 0, dx, dy, 1, -sy * dx, -sy * dy])
+        b += [sx, sy]
+    coeffs = np.linalg.lstsq(np.array(m, float), np.array(b, float), rcond=None)[0]
+    warped = shot.transform(base.size, Image.PERSPECTIVE, coeffs, Image.BICUBIC)
+    warped = warped.filter(ImageFilter.GaussianBlur(0.7))  # match the photo's focus falloff
+    mask = Image.new('L', base.size, 0)
+    ImageDraw.Draw(mask).polygon(quad, fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(1.2))
+    out = base.copy()
+    out.paste(warped, (0, 0), mask)
+    # Keep the original screen's specular sheen. Keyed off the screen's own median, not a fixed
+    # level — against a bright blank screen a fixed threshold whites out the whole paste.
+    lum = base.convert('L')
+    inside = np.asarray(lum)[np.asarray(mask) > 128]
+    if inside.size:
+        cut = min(250, int(np.median(inside)) + 12)
+        glare = ImageChops.subtract(lum, Image.new('L', base.size, cut)).point(lambda v: min(v * 3, 110))
+        out.paste(Image.new('RGB', base.size, (255, 255, 255)), (0, 0),
+                  ImageChops.multiply(glare, mask))
+    return out
+
+
+def fit(im):
+    im = im.convert('RGB')
+    s = max(W / im.width, H / im.height)
+    im = im.resize((round(im.width * s), round(im.height * s)), Image.LANCZOS)
+    return im.crop(((im.width - W) // 2, (im.height - H) // 2,
+                    (im.width - W) // 2 + W, (im.height - H) // 2 + H))
+
+
+FONTS = {
+    # TikTok's real caption face. DejaVu was only ever the fallback that happened to be installed.
+    'tiktok': ('~/.local/share/fonts/TikTokSans-Bold.ttf',),
+    # Letraset Gilgamesh, 1994. Tight calligraphic serif, so it needs ~15% more px to read at
+    # the same optical size as a sans.
+    'gilgamesh': ('~/.local/share/fonts/Gilgamesh-Bold.ttf',),
+}
+FALLBACK = ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf')
+FACE = 'tiktok'
+
+
+def font(size, face=None):
+    from PIL import ImageFont
+    face = face or FACE
+    scale = 1.15 if face == 'gilgamesh' else 1.0
+    for p in FONTS.get(face, ()) + FALLBACK:
+        p = Path(p).expanduser()
+        if p.exists():
+            return ImageFont.truetype(str(p), round(size * scale))
+    return ImageFont.load_default()
+
+
+TEXT_FILL = (255, 246, 209)  # soft cream, the colour creators pick off the default text tool
+
+
+def caption(im, text, face=None, fill=TEXT_FILL):
+    """TikTok's own text tool: bare cream text in the upper third, no plate behind it.
+    Deliberately not the full-bleed gradient the ad-style factory uses — that reads as an ad."""
+    # The tip numbering lives in the source copy but reads as a listicle template on the slide.
+    # Stripped here rather than in CONCEPTS so runs already written to slides.json pick it up too.
+    text = re.sub(r'^\d+\.\s*', '', text)
+    d = ImageDraw.Draw(im)
+    f = font(56, face)
+    # Gilgamesh's space is 0.21em against a 0.58em 'n', so set solid its words visibly collide.
+    # It has no thin-space glyph, so the gap is added between words at draw time instead.
+    gap = 14 if (face or FACE) == 'gilgamesh' else 0
+
+    def width(s):
+        return d.textlength(s, font=f) + gap * (len(s.split()) - 1)
+
+    words, lines, cur = text.split(), [], ''
+    for w in words:
+        t = (cur + ' ' + w).strip()
+        if width(t) > W - 260 and cur:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = t
+    lines.append(cur)
+    layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    ld = ImageDraw.Draw(layer)
+    shadow = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+
+    def lay(draw, dy, colour):
+        y = 300 + dy
+        for ln in lines:
+            x = (W - width(ln)) / 2
+            for w in ln.split():
+                draw.text((x, y), w, font=f, fill=colour)
+                x += draw.textlength(w + ' ', font=f) + gap
+            y += 88
+
+    # Without the plate, cream on a bright frame (white bedding, pale tile, sky) loses its edges.
+    # A blurred drop shadow carries the contrast instead, which is what the native tool does.
+    lay(sd, 3, (0, 0, 0, 190))
+    layer = Image.alpha_composite(layer, shadow.filter(ImageFilter.GaussianBlur(7)))
+    lay(ImageDraw.Draw(layer), 0, tuple(fill) + (255,))
+    return Image.alpha_composite(im.convert('RGBA'), layer).convert('RGB')
+
+
+def sheet(paths, out):
+    cols = 5
+    tw, th = 216, 384
+    rows = (len(paths) + cols - 1) // cols
+    s = Image.new('RGB', (tw * cols, th * rows), 'black')
+    d = ImageDraw.Draw(s)
+    for i, p in enumerate(paths):
+        im = Image.open(p).convert('RGB')
+        im.thumbnail((tw, th))
+        x, y = (i % cols) * tw, (i // cols) * th
+        s.paste(im, (x, y))
+        d.rectangle([x, y, x + 30, y + 20], fill='black')
+        d.text((x + 4, y + 4), str(i + 1), fill='yellow')
+    s.save(out, quality=92)
+    return out
+
+
+def render(concept, run_dir, only=None, offset=0):
+    slides, trip = concept['slides'], concept['trip']
+    run_dir.mkdir(parents=True, exist_ok=True)
+    for s in slides:
+        if only and s['n'] not in only:
+            continue
+        raw = run_dir / f"slide_{s['n']:02d}_raw.jpg"
+        img = None
+        for attempt in range(4):
+            try:
+                # a fresh ref frame each retry, so a scene that hides the phone isn't retried as-is
+                generate(s, trip, raw, offset + attempt)
+            except Exception as e:
+                print(f"  slide {s['n']} attempt {attempt + 1}: {e}", file=sys.stderr)
+                time.sleep(5)
+                continue
+            img = Image.open(raw)
+            if not s['person'] and not s.get('crowd') and has_face(img):
+                print(f"  slide {s['n']}: stranger in an object shot, retrying", file=sys.stderr)
+                img = None
+                continue
+            if not s.get('screen'):
+                break
+            quad = detect_screen(img)
+            if quad:
+                img = paste_screen(img, quad, APP_SHOT)
+                img.save(run_dir / f"slide_{s['n']:02d}_screen.jpg", quality=95)
+                break
+            # shipping a blank phone is worse than spending another generation
+            print(f"  slide {s['n']}: no screen found, retrying", file=sys.stderr)
+            img = None
+        if img is None:
+            print(f"  slide {s['n']} FAILED", file=sys.stderr)
+            continue
+        caption(fit(img), s['overlay']).save(run_dir / f"slide_{s['n']:02d}.jpg", quality=94)
+        print(f"  slide {s['n']} ok")
+    paths = [run_dir / f"slide_{s['n']:02d}.jpg" for s in slides
+             if (run_dir / f"slide_{s['n']:02d}.jpg").exists()]
+    sheet(paths, run_dir / 'sheet.jpg')
+    (run_dir / 'slides.json').write_text(json.dumps(slides, indent=1))
+    return paths
+
+
+def recaption(run_dir, face=None):
+    """Redraw captions over the frames already on disk. Restyling the text is not a reason to
+    pay for ten more generations, and it keeps an approved set visually identical underneath."""
+    slides = json.loads((run_dir / 'slides.json').read_text())
+    paths = []
+    for s in slides:
+        stem = run_dir / f"slide_{s['n']:02d}"
+        # the screen composite is the shippable frame wherever one was made
+        src = next((p for p in (Path(f'{stem}_screen.jpg'), Path(f'{stem}_raw.jpg')) if p.exists()), None)
+        if not src:
+            print(f"  slide {s['n']}: no source frame", file=sys.stderr)
+            continue
+        out = Path(f'{stem}.jpg')
+        caption(fit(Image.open(src)), s['overlay'], face).save(out, quality=94)
+        paths.append(out)
+        print(f"  slide {s['n']} recaptioned from {src.name}")
+    sheet(paths, run_dir / 'sheet.jpg')
+    return paths
+
+
+def self_test():
+    assert len(FACE_REFS) == 2, FACE_REFS
+    assert APP_SHOT.exists(), APP_SHOT
+    for k, pool in REF_POOL.items():
+        for f in pool:
+            assert (REF_FRAMES / f).exists(), (k, f)
+    for name, c in CONCEPTS.items():
+        slides = c['slides']
+        assert [s['n'] for s in slides] == list(range(1, len(slides) + 1)), name
+        assert sum('sayla' in s['overlay'] for s in slides) == 1, f'{name}: sayla must be one tip'
+        assert sum(bool(s.get('screen')) for s in slides) == 1, name
+        assert all(s['ref'] in REF_POOL for s in slides), name
+        # the cover promises a count; the tips must actually add up to it
+        words = (w.strip('(),.:') for w in slides[0]['overlay'].split())
+        promised = next((int(w) for w in words if w.isdigit()), None)
+        assert promised == len(slides) - 1, (name, promised, len(slides) - 1)
+        assert PHONE in next(s['subject'] for s in slides if s.get('screen')), name
+    # signal file, when present, must stay claim-free and never leak into
+    # slide copy (the vocabulary is for authoring the Sayla tip + hashtags)
+    terms = signal_terms()
+    if terms:
+        assert len(terms) == 20, len(terms)
+        for name, c in CONCEPTS.items():
+            for s in c['slides']:
+                assert not any(t in s['overlay'].lower() for t in terms if ' ' in t), (name, s['n'])
+    # schemaVersion 2 packs: albanian keeps the original 20, each pack is
+    # claim-free, and the optional language argument loads the matching pack.
+    data = json.loads(SIGNAL_PATH.read_text()) if SIGNAL_PATH.exists() else None
+    if data and data.get('schemaVersion') == 2:
+        assert set(signal_terms('albanian')) == set(terms), 'albanian pack must match the default'
+        for lang, expected in (
+            ('french', 17),
+            ('spanish', 3),
+            ('italian', 3),
+        ):
+            got = signal_terms(lang)
+            assert len(got) == expected, (lang, len(got), expected)
+            for t in got:
+                # hashtags like hashtag tokens are dirty for caption reuse only when
+                # they contain a space; single-token tags are fine. Just assert they
+                # are claim-free, non-empty, lowercase strings.
+                assert t == t.lower() and t.strip(), (lang, t)
+        # packs that carried no live affinity evidence must be flagged
+        assert signal_terms('unknown_language') == [], 'unknown language must fail-safe to empty'
+        packs = data['packs']
+        for lang in ('albanian', 'french', 'spanish', 'italian'):
+            pclaims = packs[lang].get('claims') or {}
+            assert not (pclaims.get('popularity') or pclaims.get('trending')), lang
+        assert packs['spanish']['unknownCaveat'] is True
+        assert packs['italian']['unknownCaveat'] is True
+    for face in FONTS:
+        # load_default silently gives a tiny bitmap face, so a missing install would only show up
+        # as unreadably small captions on a finished slide
+        assert font(56, face).getname()[0] not in (None, 'Aileron'), face
+        im = caption(fit(Image.new('RGB', (720, 1280), 'grey')), 'hello world test caption', face)
+        assert im.size == (W, H)
+    print(f'self-test OK ({len(CONCEPTS)} concepts)')
+
+
+if __name__ == '__main__':
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--render', action='store_true')
+    ap.add_argument('--concept', default='spain_packing', choices=sorted(CONCEPTS))
+    ap.add_argument('--only', help='comma-separated slide numbers')
+    ap.add_argument('--offset', type=int, default=0, help='shift ref-frame choice when a slide misses')
+    ap.add_argument('--run', help='existing run dir name to re-render into')
+    ap.add_argument('--recaption', help='path to a run dir; redraw captions on existing frames')
+    ap.add_argument('--face', choices=sorted(FONTS), help=f'caption typeface (default {FACE})')
+    ap.add_argument('--self-test', action='store_true')
+    a = ap.parse_args()
+    if a.self_test:
+        self_test()
+    elif a.recaption:
+        rd = Path(a.recaption)
+        for p in recaption(rd, a.face):
+            print(p)
+        print('sheet:', rd / 'sheet.jpg')
+    elif a.render:
+        rd = OUT / a.concept / (a.run or time.strftime('%Y%m%d-%H%M%S'))
+        only = {int(x) for x in a.only.split(',')} if a.only else None
+        for p in render(CONCEPTS[a.concept], rd, only, a.offset):
+            print(p)
+        print('sheet:', rd / 'sheet.jpg')
+    else:
+        ap.print_help()

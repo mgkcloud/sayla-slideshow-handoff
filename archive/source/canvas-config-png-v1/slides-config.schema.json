@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SlidesConfig",
+  "description": "Configuration for TikTok slideshow slide generation",
+  "type": "object",
+  "required": ["client", "background_images", "hooks", "output_dir"],
+  "properties": {
+    "client": {
+      "type": "string",
+      "description": "Client/brand name (e.g. 'boxdivvy' or 'needlefree')"
+    },
+    "background_images": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Local file path or HTTP URL to background image"
+      },
+      "description": "Array of background image paths or URLs to use for slides"
+    },
+    "hooks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique hook identifier (e.g. 'BD-TOF-01')"
+          },
+          "text": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Lines of hook text to overlay on the slide"
+          },
+          "hashtags": {
+            "type": "string",
+            "description": "Hashtags for the slide"
+          }
+        }
+      },
+      "description": "Array of hook definitions, each producing one slide"
+    },
+    "font": {
+      "type": "object",
+      "description": "Font rendering settings",
+      "properties": {
+        "family": {
+          "type": "string",
+          "default": "Inter",
+          "description": "Font family name"
+        },
+        "weight": {
+          "type": "string",
+          "default": "Bold",
+          "description": "Font weight (e.g. 'Bold', 'Black')"
+        },
+        "size": {
+          "type": "number",
+          "default": 72,
+          "description": "Font size in pixels"
+        },
+        "color": {
+          "type": "string",
+          "default": "#FFFFFF",
+          "description": "Text fill color"
+        },
+        "shadow": {
+          "type": "object",
+          "description": "Text shadow settings for readability",
+          "properties": {
+            "color": {
+              "type": "string",
+              "default": "rgba(0,0,0,0.85)",
+              "description": "Shadow color"
+            },
+            "blur": {
+              "type": "number",
+              "default": 8,
+              "description": "Shadow blur radius in pixels"
+            },
+            "offsetX": {
+              "type": "number",
+              "default": 4,
+              "description": "Shadow horizontal offset"
+            },
+            "offsetY": {
+              "type": "number",
+              "default": 4,
+              "description": "Shadow vertical offset"
+            }
+          }
+        },
+        "outline": {
+          "type": "object",
+          "description": "Text outline/stroke settings",
+          "properties": {
+            "color": {
+              "type": "string",
+              "default": "rgba(0,0,0,0.9)",
+              "description": "Outline color"
+            },
+            "width": {
+              "type": "number",
+              "default": 4,
+              "description": "Outline width in pixels"
+            }
+          }
+        }
+      }
+    },
+    "cta_text": {
+      "type": "string",
+      "default": "",
+      "description": "Call-to-action text for the bottom bar (brand name or URL)"
+    },
+    "cta_bg_color": {
+      "type": "string",
+      "default": "#2D7D46",
+      "description": "Background color for the CTA bar at the bottom"
+    },
+    "output_dir": {
+      "type": "string",
+      "description": "Output directory for generated slide PNGs"
+    },
+    "canvas": {
+      "type": "object",
+      "description": "Canvas dimensions",
+      "properties": {
+        "width": {
+          "type": "number",
+          "default": 1080,
+          "description": "Canvas width in pixels"
+        },
+        "height": {
+          "type": "number",
+          "default": 1920,
+          "description": "Canvas height in pixels"
+        }
+      }
+    },
+    "text_position": {
+      "type": "string",
+      "enum": ["top", "center", "bottom"],
+      "default": "top",
+      "description": "Vertical position of hook text. 'top' places at ~30% from top (TikTok safe zone)"
+    },
+    "cta_bar_height": {
+      "type": "number",
+      "default": 0.15,
+      "description": "CTA bar height as a fraction of canvas height"
+    }
+  }
+}

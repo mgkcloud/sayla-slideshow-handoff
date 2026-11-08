@@ -1,0 +1,199 @@
+"""Redraw the Notification Centre band of IMG_7872.
+
+Nothing is synthesised that can be transplanted instead. The wallpaper under the
+old card is repaired by copying real rows from the clear band above it and
+correcting their level, so the capture's own dither survives; a smooth synthetic
+gradient would band, which is the reason iOS dithers in the first place. The
+card fill is exactly (255,232,229) with zero variance, so it repaints as a flat
+opaque colour, and the page is rendered with the repaired capture as its
+background so there is no compositing step to go wrong.
+
+Every number below was measured off the capture. Run with `parity` to redraw the
+original content at the original position and diff; that validates the fonts and
+the layout before any content is swapped.
+"""
+import base64
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+import numpy as np
+from PIL import Image
+
+SRC = "<original-host-path>"
+CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+S = 3
+PT_W, PT_H = 393, 852
+
+# ---- measured geometry, in pt ----
+CARD_L, CARD_R = 14.17, 379.17
+CARD_W = CARD_R - CARD_L                 # 365.00
+CARD_PAD_TOP = 45.33                     # height = CARD_PAD_TOP + 20 * lines
+LINE_PITCH = 20.00
+AVATAR = 38.00
+AVATAR_L = 28.33
+# Text is placed by its box, but measured by its ink, and the two differ by the
+# glyph's side bearing. These are the box positions that put the ink where the
+# capture has it: ink left 79.00, ink right 362.00.
+TEXT_L = 78.33
+WHEN_R = 362.33
+TEXT_W = WHEN_R - TEXT_L
+TITLE_INK_DY = 15.00                     # below card top
+WHEN_INK_DY = 17.00
+BODY_INK_DY = 35.67
+CARD_GAP = 6.00                          # not measurable here; only one card
+CARD_RADIUS = 24.0
+HEADER_TO_CARD = 7.83                    # X-disc bottom to card top
+X_DISC = 38.33
+X_DISC_R = 379.33                        # right-aligned with the card
+HDR_TEXT_L = 24.33
+HDR_INK_TOP_DY = 9.33                    # below X-disc top (552.33 - 543.00)
+
+FILL = "rgb(255,232,229)"
+INK = "rgb(26,23,22)"
+WHEN_INK = "rgb(145,105,102)"
+HDR_INK = "rgb(23,12,11)"
+
+# ---- measured type ----
+TITLE_PX, TITLE_W = 17.0, 600
+BODY_PX, BODY_W = 17.0, 400
+WHEN_PX, WHEN_W = 15.0, 400
+HDR_PX, HDR_W = 30.0, 400
+
+# Ink-top to CSS-top offsets, solved by rendering and measuring (see `calibrate`).
+CAP_OFF = json.load(open("/tmp/tt/capoff.json")) if os.path.exists("/tmp/tt/capoff.json") \
+    else {"title": 0.0, "when": 0.0, "body": 0.0, "header": 0.0}
+
+
+def repair_wallpaper(im):
+    """Erase the old header and card by transplanting real wallpaper rows.
+
+    Rows 205-541pt are clear at every x, so they supply full-width dither. Each
+    destination row takes a source row from there and is shifted by the
+    difference between the two rows' margin colours, which is the gradient.
+    """
+    out = im.copy()
+    H, W, _ = im.shape
+
+    def margin(row):
+        return np.concatenate([im[row, 4:38], im[row, W - 38:W - 4]]).mean(axis=0)
+
+    dst0, dst1 = 1620, 2092          # covers the X disc, header text and the card
+    src0 = dst0 - (dst1 - dst0) - 1  # the clear band immediately above
+    for i, y in enumerate(range(dst0, dst1)):
+        ys = src0 + i
+        out[y] = im[ys] + (margin(y) - margin(ys))
+    return out
+
+
+def card_html(c, top):
+    lines = c["lines"]
+    h = CARD_PAD_TOP + LINE_PITCH * lines
+    body = c["body"].replace("&", "&amp;").replace("<", "&lt;")
+    av = c["avatar"]
+    avatar_top = top + (h - AVATAR) / 2
+    return f"""
+<div style="position:absolute;left:{CARD_L}px;top:{top}px;
+            width:{CARD_W}px;height:{h}px;background:{FILL};
+            border-radius:{CARD_RADIUS}px"></div>
+<img src="{av['src']}" style="position:absolute;left:{AVATAR_L}px;top:{avatar_top}px;
+     width:{AVATAR}px;height:{AVATAR}px;border-radius:{av['radius']}px;object-fit:cover">
+{av.get('badge','')}
+<div class="t" style="left:{TEXT_L}px;top:{top + TITLE_INK_DY - CAP_OFF['title']}px;
+     font-size:{TITLE_PX}px;font-weight:{TITLE_W};color:{INK}">{c['title']}</div>
+<div class="t" style="left:{TEXT_L}px;top:{top + WHEN_INK_DY - CAP_OFF['when']}px;
+     width:{TEXT_W}px;text-align:right;
+     font-size:{WHEN_PX}px;font-weight:{WHEN_W};color:{WHEN_INK}">{c['when']}</div>
+<div class="t" style="left:{TEXT_L}px;top:{top + BODY_INK_DY - CAP_OFF['body']}px;
+     width:{TEXT_W}px;white-space:normal;line-height:{LINE_PITCH}px;
+     font-size:{BODY_PX}px;font-weight:{BODY_W};color:{INK}">{body}</div>
+""", h
+
+
+def build(cards, plate_uri, stack_bottom):
+    heights = [CARD_PAD_TOP + LINE_PITCH * c["lines"] for c in cards]
+    stack_h = sum(heights) + CARD_GAP * (len(cards) - 1)
+    top = stack_bottom - stack_h
+
+    disc_bottom = top - HEADER_TO_CARD
+    disc_top = disc_bottom - X_DISC
+
+    parts = []
+    y = top
+    for c, h in zip(cards, heights):
+        html, _ = card_html(c, y)
+        parts.append(html)
+        y += h + CARD_GAP
+
+    x_cx = X_DISC_R - X_DISC / 2
+    x_cy = disc_top + X_DISC / 2
+    header = f"""
+<div style="position:absolute;left:{X_DISC_R - X_DISC}px;top:{disc_top}px;
+            width:{X_DISC}px;height:{X_DISC}px;border-radius:50%;background:{FILL}"></div>
+<svg style="position:absolute;left:{x_cx - 6.33}px;top:{x_cy - 6.5}px" width="12.67" height="13"
+     viewBox="0 0 12.67 13"><path d="M1 1 L11.67 12 M11.67 1 L1 12" stroke="{INK}"
+     stroke-width="2.1" stroke-linecap="round" fill="none"/></svg>
+<div class="t" style="left:{HDR_TEXT_L}px;
+     top:{disc_top + HDR_INK_TOP_DY - CAP_OFF['header']}px;
+     font-size:{HDR_PX}px;font-weight:{HDR_W};color:{HDR_INK}">Notification Centre</div>
+"""
+    return f"""<html><head><meta charset="utf-8"><style>
+*{{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}}
+html,body{{width:{PT_W}px;height:{PT_H}px;overflow:hidden}}
+body{{background-image:url({plate_uri});background-size:{PT_W}px {PT_H}px;
+     font-family:system-ui,-apple-system,sans-serif;
+     font-variant-ligatures:none;letter-spacing:0}}
+.t{{position:absolute;white-space:pre}}
+</style></head><body>{header}{''.join(parts)}</body></html>"""
+
+
+def data_uri(arr):
+    im = Image.fromarray(np.clip(arr + 0.5, 0, 255).astype(np.uint8))
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def render(html, out):
+    with tempfile.TemporaryDirectory() as tmp:
+        page = os.path.join(tmp, "p.html")
+        open(page, "w").write(html)
+        subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars",
+                        "--force-color-profile=srgb", f"--force-device-scale-factor={S}",
+                        f"--window-size={PT_W},{PT_H}", "--virtual-time-budget=3000",
+                        f"--screenshot={os.path.abspath(out)}", f"file://{page}"],
+                       check=True, capture_output=True)
+
+
+if __name__ == "__main__":
+    im = np.asarray(Image.open(SRC).convert("RGB")).astype(np.float64)
+    plate = repair_wallpaper(im)
+    Image.fromarray(np.clip(plate + 0.5, 0, 255).astype(np.uint8)).save("/tmp/tt/repaired.png")
+
+    # residual of the repaired region against the per-row margin colour, versus
+    # the same statistic on untouched wallpaper
+    W = im.shape[1]
+    for name, (a, b) in {"repaired": (1620, 2092), "untouched": (700, 1600)}.items():
+        m = np.concatenate([plate[a:b, 4:38], plate[a:b, W - 38:W - 4]], axis=1).mean(axis=1)
+        d = np.abs(plate[a:b] - m[:, None, :])
+        print(f"{name:10s} mean {d.mean():.3f}  max {d.max():.2f}")
+
+    # crop the real avatar out of the capture for the parity render
+    av = Image.open(SRC).convert("RGB").crop(
+        (int(28.33 * S), int(623.0 * S), int(66.33 * S), int(661.0 * S)))
+    buf = io.BytesIO()
+    av.save(buf, "PNG")
+    av_uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+    cards = [{
+        "title": "SL Jim", "when": "52m ago",
+        "body": "Can run from mine then do coffee and draw up some plans for your build?",
+        "lines": 3,
+        "avatar": {"src": av_uri, "radius": AVATAR / 2},
+    }]
+    html = build(cards, data_uri(plate), stack_bottom=694.50)
+    render(html, "/tmp/tt/parity.png")
+    print("wrote /tmp/tt/parity.png")

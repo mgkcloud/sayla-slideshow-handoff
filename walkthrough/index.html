@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Sayla slideshow versions, images and source notes.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Sayla slideshows</title>
+  <link rel="canonical" href="https://gnn.fy.studio/sayla-slideshow-guide/v1/index.html">
+  <link rel="stylesheet" href="styles-plain-v3.css">
+  <script src="app.js?v=public-handoff-4" defer></script>
+</head>
+<body>
+  <header>
+    <h1><a class="wordmark" href="#chapter/verified-canvas-drafts">Sayla slideshows</a></h1>
+    <div class="repo-access">
+      <a id="github-link" class="repo-button" href="https://github.com/mgkcloud/sayla-slideshow-handoff" target="_blank" rel="noopener">Open GitHub repo ↗</a>
+      <span>Public repo · no sign-in needed</span>
+    </div>
+  </header>
+  <main id="main-content">
+    <article id="chapter-content" tabindex="-1" aria-busy="true">
+      <p id="loading-state" role="status">Loading images…</p>
+      <div id="app-content" hidden>
+        <div class="toolbar">
+          <label for="chapter-select">Version</label>
+          <select id="chapter-select" aria-label="Version"></select>
+          <button id="previous-chapter" type="button">Previous version</button>
+          <button id="next-chapter" type="button">Next version</button>
+          <details class="search">
+            <summary>Search</summary>
+            <div class="filters">
+              <input id="keyword-filter" type="search" placeholder="Search text…" aria-label="Search images and notes">
+              <select id="role-filter" aria-label="Image type"><option value="">All image types</option></select>
+              <button id="clear-filters" type="button" hidden>Clear</button>
+              <output id="filter-count" aria-live="polite"></output>
+            </div>
+          </details>
+        </div>
+        <div class="viewer">
+          <section class="images" aria-label="Images">
+            <div id="image-stage">
+              <img id="generation-image" alt="" decoding="async">
+              <div id="image-error" hidden role="status">Image unavailable.</div>
+              <button id="open-lightbox" type="button" aria-label="Open larger image">Enlarge</button>
+            </div>
+            <div id="empty-state" hidden>
+              <p id="empty-state-label"></p>
+              <h2 id="empty-state-title"></h2>
+              <p id="empty-state-copy"></p>
+            </div>
+            <div id="generation-controls">
+              <button id="previous-image" type="button" aria-label="Previous image">←</button>
+              <span id="image-position" aria-live="polite"></span>
+              <button id="next-image" type="button" aria-label="Next image">→</button>
+            </div>
+            <div id="thumbnail-region">
+              <div id="thumbnail-strip" role="list" aria-label="All images in this version"></div>
+            </div>
+          </section>
+          <section class="notes" aria-label="Image notes">
+            <h2 id="chapter-title"></h2>
+            <p id="chapter-status" class="muted"></p>
+            <div id="generation-notes">
+              <p id="generation-title" class="filename"></p>
+              <h3>Hook</h3><p id="generation-hook"></p>
+              <h3>Caption</h3><p id="generation-caption"></p>
+            </div>
+            <section id="source-section">
+              <h3>Source</h3>
+              <ul id="source-links"></ul>
+              <p class="muted">Code and source files are public.</p>
+            </section>
+            <details class="more-notes">
+              <summary>Details</summary>
+              <p id="chapter-summary"></p>
+              <dl id="generation-metadata"></dl>
+              <div id="asset-notes-block"><ul id="asset-notes"></ul></div>
+              <div id="how-block"><h3>How it works</h3><ul id="how-list"></ul></div>
+              <div id="changed-block"><h3>Changes</h3><ul id="changed-list"></ul></div>
+              <div id="remaining-block"><h3>Notes</h3><ul id="caveat-list"></ul><p id="next-step"></p></div>
+            </details>
+          </section>
+        </div>
+      </div>
+      <div id="fatal-state" hidden role="alert"><h2>Unable to load</h2><p id="fatal-message">Reload the page.</p></div>
+    </article>
+  </main>
+  <footer>Historical drafts. Claims and AI-generated scenarios are unverified; not approved ads.</footer>
+  <dialog id="lightbox" aria-labelledby="lightbox-title">
+    <div class="lightbox-toolbar"><p id="lightbox-title"></p><button id="close-lightbox" type="button">Close</button></div>
+    <div class="lightbox-image-wrap"><img id="lightbox-image" alt=""></div>
+    <div class="lightbox-controls"><button id="lightbox-previous" type="button" aria-label="Previous image">←</button><span id="lightbox-caption"></span><button id="lightbox-next" type="button" aria-label="Next image">→</button></div>
+  </dialog>
+  <div hidden aria-hidden="true">
+    <span id="guide-title"></span><span id="guide-intro"></span><span id="disclaimer"></span><span id="archive-stats"></span>
+    <ol id="chapter-list"></ol><span id="rail-count"></span><ul id="progress-list"></ul><span id="chapter-eyebrow"></span>
+    <span id="chapter-position"></span><div id="chapter-progress"><span id="chapter-progress-fill"></span></div><span id="thumbnail-count"></span>
+  </div>
+  <noscript>Enable JavaScript to view the images.</noscript>
+</body>
+</html>

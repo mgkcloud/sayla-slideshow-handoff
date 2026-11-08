@@ -1,0 +1,46 @@
+{
+  "status": "PASS",
+  "at_utc": "2026-11-08T06:17:58.421455+00:00",
+  "steps": [
+    {
+      "name": "install",
+      "exit_code": 0,
+      "render_network_blocked": false
+    },
+    {
+      "name": "tests",
+      "exit_code": 0,
+      "render_network_blocked": false
+    },
+    {
+      "name": "demo",
+      "exit_code": 0,
+      "render_network_blocked": true
+    }
+  ],
+  "tests": {
+    "tests": 10,
+    "pass": 10,
+    "fail": 0,
+    "skipped": 0
+  },
+  "draft_sets": [
+    {
+      "name": "duolingo-isnt-practice",
+      "png_count": 3
+    },
+    {
+      "name": "more-words-less-panic",
+      "png_count": 3
+    },
+    {
+      "name": "spanish-isnt-speaking-spanish",
+      "png_count": 3
+    }
+  ],
+  "total_pngs": 9,
+  "node": "v26.12.1",
+  "npm": "12.0.2",
+  "renderer_sha256": "7a5635d91660b1851cc6491a482bb1911cd55b93302eb9c73158d64575fa302f",
+  "credentials_required_for_local_runtime": false
+}

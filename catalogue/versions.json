@@ -1,0 +1,453 @@
+{
+  "schemaVersion": 1,
+  "scope": "Public handoff; preserved version notes and safe source snapshots, not a claim all legacy tools can rerun",
+  "versions": [
+    {
+      "id": "verified-canvas-drafts",
+      "title": "The runnable Canvas adaptation",
+      "status": "verified",
+      "summary": "Three local draft sets produce nine real 1080×1920 PNGs. This is the only currently verified runnable renderer in the package; it is an adaptation of a generic pipeline, not a reproduction of the historical Sayla engines.",
+      "howItWorks": [
+        "Reads a local JSON config with ordered hooks, local backgrounds and a caption.",
+        "Validates paths and content, then renders one PNG per hook with a source/output manifest.",
+        "Runs without render-time networking or social/posting integration."
+      ],
+      "whatChanged": [
+        "Added local-only background enforcement, captions, provenance manifests and fail-closed validation.",
+        "Rewrote payoff/caption copy as non-testimonial draft copy for the supplied examples."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "Manual creative, claims, likeness and rights review is still required."
+      ],
+      "nextStep": "Inspect all nine supplied drafts, then choose the exact historical format before extending the renderer.",
+      "sourceLinks": [
+        {
+          "label": "HANDOFF",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HANDOFF.md"
+        },
+        {
+          "label": "IMPLEMENTATION",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/factory/IMPLEMENTATION.md"
+        }
+      ]
+    },
+    {
+      "id": "july-tier3-hooks",
+      "title": "Tier-3: surviving July images, later rerun",
+      "status": "historical",
+      "summary": "Three concepts follow belief violation, real-world panic and a Sayla speaking-practice payoff. Surviving July images remain valid historical outputs even though the October rerun records failed provider execution.",
+      "howItWorks": [
+        "A provider-backed scene image was combined with Pillow typography.",
+        "Each concept has raw scenes, three final slides and review sheets."
+      ],
+      "whatChanged": [
+        "The archive separates surviving older bytes from the later failed rerun instead of treating the failed manifest as proof that no images exist."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "The legacy generator has unguarded paid execution paths and is not a safe local module.",
+        "Exact original rerun dependencies are not packaged."
+      ],
+      "nextStep": "Review the surviving sequences visually; do not rerun the legacy generator as part of this guide.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "may-tier3-hooks",
+      "title": "Tier-3: recovered May batch",
+      "status": "historical",
+      "summary": "A separate May 16 batch preserves the same three story arcs with raw scenes, finals and carousel previews. It is a distinct dated run, not a duplicate label for the July or October records.",
+      "howItWorks": [
+        "Identity-locked travel scenes support a three-slide belief → panic → payoff structure.",
+        "Concept records provide exact per-slide overlay and caption copy where IDs and filenames match."
+      ],
+      "whatChanged": [
+        "Recovery added rendered evidence that was absent from the local-only view."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "Recovery of bytes does not make the provider-backed generator reproducible."
+      ],
+      "nextStep": "Compare May and July treatments side by side before selecting a production direction.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "early-language-hooks",
+      "title": "Nine early language-hook stories",
+      "status": "historical",
+      "summary": "Nine three-slide concepts test language anxiety, follow-up questions, speaking speed, streaks and romantic motivation. Raw scenes, finals and review sheets remain grouped by their own story ID.",
+      "howItWorks": [
+        "A manifest preserves each storyline's three exact overlay strings and caption.",
+        "Warm travel and everyday scenes carry the dialogue-first hook through three beats."
+      ],
+      "whatChanged": [
+        "Drive recovery restored nine concepts rather than a single flattened contact sheet."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "Recovered imagery and copy are historical drafts, not evidence of acceptance or conversion."
+      ],
+      "nextStep": "Shortlist by story arc and inspect raw-to-final changes; do not infer performance from the number of variants.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "spain-packing-listicles",
+      "title": "Spain packing: three dated listicle runs",
+      "status": "historical",
+      "summary": "Three dated runs preserve the same Spain-packing concept. Raw scenes are deduplicated by content hash while every final and run context remains reachable.",
+      "howItWorks": [
+        "A ten-item slides record supplies exact overlay text by slide number.",
+        "Generated scene backgrounds are overlaid into portrait recommendation cards."
+      ],
+      "whatChanged": [
+        "The public projection preserves three run contexts but stores duplicate raw payloads only once."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "Historical finals are 1080×1920 while the old script declares 1080×1440; exact reproducibility is not claimed."
+      ],
+      "nextStep": "Choose a run by visual review, then resolve the dimension and dependency drift before any rerender.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "organic-speaking-listicles",
+      "title": "Organic speaking and travel listicles",
+      "status": "historical",
+      "summary": "Recommendation cards cover fluency routines, meeting family, moving abroad, Sunday reset and related travel/speaking situations. Each dated run keeps its own exact slide copy where a slides record exists.",
+      "howItWorks": [
+        "Identity-locked or object-led scenes become portrait listicle finals with Pillow text.",
+        "Raw images, finals and review sheets are separate roles, not separate claims of approval."
+      ],
+      "whatChanged": [
+        "The projection groups these by listicle format and storyline rather than one opaque archive bucket."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "References, cached fonts and generation dependencies are missing; old outputs are not a runnable recipe."
+      ],
+      "nextStep": "Review each storyline as a sequence and record which format merits a clean, rights-cleared rebuild.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "variant-factory",
+      "title": "Single-image Variant Factory runs",
+      "status": "historical",
+      "summary": "Seven July runs contain 105 variant images and three contact sheets. Three recovered review manifests preserve exact overlay and caption copy for 45 entries; unrecovered text stays empty.",
+      "howItWorks": [
+        "Each image is a standalone variant with its own run, filename and source record.",
+        "Review manifests join exact copy by run and output ID; no neighboring-slide text is guessed."
+      ],
+      "whatChanged": [
+        "Deduplication removes repeated bytes without erasing the three early-run contexts."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "Source-post views in private manifests are not Sayla performance and are deliberately omitted.",
+        "The historical dry-run path is not offline and is not part of this viewer."
+      ],
+      "nextStep": "Use the 45 exact-copy records for copy review; treat empty copy elsewhere as not recovered.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "gpt25-photorealistic",
+      "title": "Photorealistic w1/w2/w3 scenes",
+      "status": "historical",
+      "summary": "Three Albanian-language directions survive as raw and final photorealistic scenes: the phone call, the wedding and five phrases for Nana. They are not the prompt-only comic trials.",
+      "howItWorks": [
+        "Generated scenes were composed with notification, thread or phrase-list typography.",
+        "Recovered configuration and per-slide metadata supply exact copy where the slide number and run match."
+      ],
+      "whatChanged": [
+        "The archive distinguishes w1, w2 and w3 instead of collapsing them into a generic comic label."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "One app-screen input and another temporary config are absent; paid uncached rerun is neither available nor authorized."
+      ],
+      "nextStep": "Review the surviving three concepts independently; do not claim a complete deterministic rerender.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "french-for-him-versions",
+      "title": "French for him: four rendered versions",
+      "status": "historical",
+      "summary": "Original three-slide, three-slide hook, five-slide generated and five-slide onsen-style versions explore one romantic language-learning premise. Duplicate original bytes remain visible in both their original and early-batch contexts.",
+      "howItWorks": [
+        "Each version has its own concept or manifest, slide sequence and review sheet.",
+        "Exact copy is joined by version and slide number; missing captions remain not recovered."
+      ],
+      "whatChanged": [
+        "Drive recovery superseded a local-only missing claim with four rendered versions, without proving generator reproducibility."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "Historical posting fields conflict; this guide verifies no posting and treats them only as old metadata."
+      ],
+      "nextStep": "Compare the four versions as distinct creative treatments and keep their posting metadata out of publication decisions.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "august-selfie-stories",
+      "title": "August standalone selfie stories",
+      "status": "historical",
+      "summary": "Two standalone concepts use a consistent character and four-card selfie-story treatment. Six eligible generated outputs are shown; an iOS format probe is excluded.",
+      "howItWorks": [
+        "Provider-backed character imagery was paired with Pillow typography.",
+        "The two recovered hooks concern 430 days of French and a Spanish waiter's follow-up; exact per-file assignment is not recovered, so no hook is guessed."
+      ],
+      "whatChanged": [
+        "The archive preserves safe outputs and prompts while excluding credential-bearing metadata."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "The generator is not packaged and exact per-image copy linkage is incomplete."
+      ],
+      "nextStep": "Recover a safe per-image manifest before assigning hooks to individual files.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "workspace-speaking-gap",
+      "title": "Workspace speaking-gap survivors",
+      "status": "historical",
+      "summary": "Ten surviving typographic outputs and two review sheets are catalogued as real local bytes. An earlier history note described the eleven-slide concept as captions-only; these files prove surviving outputs, not recovery of the complete eleven-slide sequence.",
+      "howItWorks": [
+        "The concept moves from understanding Spanish to the harder moment of answering back.",
+        "The surviving typographic cards are presented as historical outputs, separate from the accepted iOS and Tier-3 lanes."
+      ],
+      "whatChanged": [
+        "Actual catalogued image bytes are shown rather than hiding the family behind the older concept-only note."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "Only three sequence copy strings are documented and cannot be assigned reliably to every file; per-asset copy remains empty.",
+        "The old browser/remote-background implementation is not the current local Canvas runner."
+      ],
+      "nextStep": "Reconcile the ten survivors against the eleven-slide concept before calling the sequence complete.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "accepted-native-slideshows",
+      "title": "The iMessage and lock-screen system",
+      "status": "historical",
+      "summary": "The missing accepted renderer has now been recovered, with its existing outputs. A personal hook leads into an authored lock-screen notification or iMessage conversation, then a Sayla payoff. These are historical fictional creatives, not real private chats.",
+      "howItWorks": [
+        "Pillow composes the photo hook and phrase overlays. HTML/CSS through headless Chrome renders the authored iOS screens.",
+        "Variants a–g define narrative hooks and fictional messages; h is an authority-list treatment.",
+        "Rendering used existing photos and wallpapers. Image generation and social publishing were separate steps and are not run by this walkthrough."
+      ],
+      "whatChanged": [
+        "Recovered and hash-verified 118 output images and 19 source/configuration files from the previously unavailable workstation.",
+        "54 formatted renders are shown here. Face-reference, ambiguous real-device and unformatted-background files stay out of this public projection.",
+        "The standalone local Canvas factory remains a separate engine, not a replacement for this visual system."
+      ],
+      "caveats": [
+        "Historical files existing does not prove the native renderer has been rerun in this handoff.",
+        "Some old product and translation claims require review before any advertising use.",
+        "Certain files have family-level lineage only; missing exact hook/caption metadata is not fabricated."
+      ],
+      "nextStep": "Use these actual outputs to choose the intended format, then inspect the recovered templates in the public repo before changing a renderer. Do not rerun generation or posting scripts as a shortcut.",
+      "sourceLinks": [
+        {
+          "label": "Recovery notes",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/NATIVE-RECOVERY.md"
+        },
+        {
+          "label": "Narrative renderer",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/archive/source/accepted-ios-recovered/variants.py.txt"
+        },
+        {
+          "label": "iOS templates",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/tree/main/archive/source/accepted-ios-recovered/ios"
+        }
+      ]
+    },
+    {
+      "id": "slidesmith-review",
+      "title": "SlideSmith launch review",
+      "status": "rejected",
+      "summary": "Eighteen rejected slides and four review sheets remain private. The outputs were rejected for final creative and the upstream noncommercial licence/background rights were not cleared.",
+      "howItWorks": [
+        "Three concepts were reviewed as desktop-browser/photo hybrids with social text cards.",
+        "This public guide records the branch and exclusion count without redistributing the images."
+      ],
+      "whatChanged": [
+        "The rejected material was explicitly removed from the public allowlist."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "No rejected SlideSmith preview, third-party reference bank or uncleared implementation source is included."
+      ],
+      "nextStep": "Obtain separate creative and licence clearance before considering any future reuse.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "comic-trials",
+      "title": "Comic carousel trials",
+      "status": "prompt-only",
+      "summary": "Character-app, voice-app and warm-scenes trials contain prompts and briefs, not verified generated carousel slides. No placeholder images are supplied.",
+      "howItWorks": [
+        "The briefs describe proposed character and app-screen shots.",
+        "Photorealistic GPT-2.5 outputs are documented in their own chapter and must not be relabelled as these comic trials."
+      ],
+      "whatChanged": [
+        "The status-only treatment makes the absence of rendered evidence explicit."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "No sequential renderer or generated comic image set was found in the audited records."
+      ],
+      "nextStep": "If renders are later recovered, verify actual pixels and provenance before promoting this chapter.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    },
+    {
+      "id": "arena-evaluation",
+      "title": "Creative Arena evaluation",
+      "status": "unavailable",
+      "summary": "Five models ranked existing ShqipTutor creative and an inferred Sayla app screen. The receipt is evaluation evidence only: no new asset batch, user testing, Sayla audience result or conversion measurement.",
+      "howItWorks": [
+        "Models generated hook options and ranked supplied images.",
+        "The audited receipt did not preserve the exact hook strings or a reusable image set, so none are reconstructed."
+      ],
+      "whatChanged": [
+        "The guide separates model judgments from real creative outputs and performance evidence."
+      ],
+      "caveats": [
+        "All people, messages and scenarios are historical fictional/AI-generated creative; claims are unverified.",
+        "These are review previews, not publication approval, audience results or an ad-use licence.",
+        "Evaluation inputs and model configuration were not preserved sufficiently for a public multimedia chapter."
+      ],
+      "nextStep": "Do not cite arena scores as market performance; recover inputs and configuration before any reproduction attempt.",
+      "sourceLinks": [
+        {
+          "label": "VERSIONS",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md"
+        },
+        {
+          "label": "HOOKS AND STYLES",
+          "url": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md"
+        }
+      ]
+    }
+  ]
+}

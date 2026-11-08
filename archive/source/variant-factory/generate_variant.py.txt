@@ -1,0 +1,86 @@
+# PUBLIC SAYLA-ONLY REFERENCE EXCERPT; not a runnable script.
+# Owner database orchestration and unrelated tenant configuration were omitted.
+#!/usr/bin/env python3
+"""Variant factory: turn harvested tiktok_video templates into rendered
+slideshow posts (sophia_variants status='ready_to_post').
+
+  python3 generate_variant.py --brand sayla --dry-run
+  python3 generate_variant.py --self-test
+"""
+import json, sys
+from datetime import datetime
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE))
+sys.path.insert(0, str(BASE / 'content-radar'))
+
+from llm_client import call_llm
+from sophia_salim_slideshow_factory import choose_asset, fit_cover, load_assets, overlay_text
+from PIL import Image
+
+OUT_ROOT = BASE / 'carousels' / 'variant_factory'
+
+BRANDS = {
+    'sayla': {
+        'persona': "Sophia, a late-20s creator learning a language with the Sayla app "
+                   "(AI conversation partner, speak naturally, no flashcards). Relatable struggle + payoff energy. "
+                   "Topics: fear of speaking, awkward tourist moments, talking to in-laws, sounding like a textbook.",
+        'cta_pool': "soft CTA mentioning the Sayla app or 'link in bio', or no CTA",
+        'hashtags': '#languagelearning #learnspanish #sayla',
+    },
+}
+
+SOPHIA_FACE = ("Young woman with soft oval face, prominent apple cheekbones, dark brown eyes with smiling squinch, "
+               "natural soft-arch brows, soft button nose, full lips with asymmetric cheeky grin, "
+               "warm golden-brown skin, dark chocolate wavy hair past clavicle with tousled texture, "
+               "gold layered necklaces, athletic build")
+
+CLONE_STYLE = ("candid iphone photo, TikTok aesthetic, natural lighting, 9:16 vertical portrait, photorealistic, "
+               "no text, no watermarks, no logos")
+
+VARIANT_PROMPT = """You write viral TikTok single-image slideshow posts by adapting a proven template.
+
+PROVEN TEMPLATE (reverse-engineered from a video with {views:,} views):
+{decomposition}
+
+PERSONA: {persona}
+CTA STYLE: {cta_pool}
+
+Write {n} DIFFERENT adaptations. Each keeps the template's hook mechanic and structure but swaps in persona-relevant specifics. Overlay text must sound like something a real person texts a friend — lowercase, no emojis, under 90 chars.
+
+Return ONLY a JSON array of {n} objects:
+[{{"variant_name": "short slug", "overlay": "the on-image text", "caption": "caption with 3-5 hashtags including {hashtags}", "image_keywords": ["bedroom","mirror","home","gas station","patio","night","morning","kitchen"], "scene": "one sentence describing where she is and what she's doing, matching the source video's visual vibe"}}]
+image_keywords: pick 2-4 that fit the overlay's scene."""
+
+
+def clone_scene_image(scene, out_path):
+    """Generate a fresh Sophia image staged for `scene` via FAL nano-banana edit with face refs."""
+    import base64, io, requests
+    # Owner credential helper omitted
+    urls = []
+    for p in sorted((BASE / 'character' / 'references').glob('ref_0*.png'))[:3]:
+        im = Image.open(p).convert('RGB')
+        im.thumbnail((768, 768))
+        buf = io.BytesIO()
+        im.save(buf, 'JPEG', quality=88)
+        urls.append('data:image/jpeg;base64,' + base64.b64encode(buf.getvalue()).decode())
+    prompt = (f"Put this exact woman ({SOPHIA_FACE}) in a new photo: {scene}. {CLONE_STYLE}")
+    r = requests.post('https://fal.run/fal-ai/nano-banana/edit',
+                      headers={'Authorization': '<API_CREDENTIAL_REFERENCE>'},
+                      json={'prompt': prompt, 'image_urls': urls, 'num_images': 1, 'aspect_ratio': '9:16'},
+                      timeout=300)
+    r.raise_for_status()
+    img = requests.get(r.json()['images'][0]['url'], timeout=120)
+    img.raise_for_status()
+    out_path.write_bytes(img.content)
+    return out_path
+
+
+def validate_variants(items, n):
+    if not isinstance(items, list) or not items:
+        return False
+    return all(isinstance(v, dict) and v.get('overlay') and v.get('caption') and v.get('variant_name')
+               for v in items[:n])
+
+

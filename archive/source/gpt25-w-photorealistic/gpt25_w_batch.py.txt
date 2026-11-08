@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""v4-lane regeneration: fresh gpt-image-2.5 renders per gated concept + v4-style overlay.
+
+Renders into carousels/gpt25_w_batch/<slug>/slide_NN_final.png
+Numbering: story concepts -> 01 hook, 02 receipts, 03 payoff.
+           authority-list  -> 01 hook, 02..06 phrases (contiguous).
+Payoff slides reuse the real app screenshot like the accepted systems do.
+"""
+import base64
+import json
+import os
+import subprocess
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
+
+BASE = Path("<original-host-path>")
+OUTROOT = BASE / "carousels/gpt25_w_batch"
+OUTROOT.mkdir(parents=True, exist_ok=True)
+W, H = 1080, 1920
+FONT_BOLD = Path("<original-host-path>")
+if not FONT_BOLD.exists():
+    FONT_BOLD = Path("/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-Bold.ttf")
+REF1 = BASE / "character/references/ref_01.png"
+REF2 = BASE / "character/references/ref_02.png"
+APP_SHOT = Path("<original-host-path>")  # checked below
+
+IDENT = ("Sophia from the provided reference images: preserve her full facial identity - "
+         "soft oval/inverted-heart face, warm golden-brown skin, dark brown eyes, dark chocolate wavy hair, "
+         "natural skin texture, non-plastic, realistic. Do not change ethnicity, face shape or age.")
+STYLE = ("Style: raw high-fidelity iPhone photo, 9:16 vertical, 24mm wide-angle, direct phone flash mixed "
+         "with warm ambient practical lights, authentic digital grain, native TikTok realism, no text in "
+         "image, no watermark, no logos.")
+
+KITCHEN_SPOTS = [
+    "standing by the balcony door looking out at city lights",
+    "sitting on her bed in dim lamp light, phone glowing in her hands",
+    "leaning against the kitchen counter holding tea, distant look",
+    "sitting on the stairs in the stairwell, head resting on her knees",
+    "washing dishes at the sink, looking out the dark window",
+]
+
+
+def gpt25(scene_desc, outpath: Path) -> bool:
+    boundary = "----gptimg25b"
+
+    def field(n, v):
+        return f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"\r\n\r\n{v}\r\n'.encode()
+
+    def ffile(n, p, fn):
+        d = Path(p).read_bytes()
+        return [f'--{boundary}\r\nContent-Disposition: form-data; name="{n}"; filename="{fn}"\r\n'
+                f'Content-Type: image/png\r\n\r\n'.encode(), d, b"\r\n"]
+
+    prompt = f"{IDENT}\n\nScene: {scene_desc}\n\n{STYLE}"
+    parts = [field("model", "gpt-image-2.5-flare"), field("prompt", prompt), field("size", "1024x1536")]
+    parts += ffile("image[]", REF1, "ref_01.png")
+    parts += ffile("image[]", REF2, "ref_02.png")
+    parts.append(f"--{boundary}--\r\n".encode())
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/images/edits", data=b"".join(parts),
+        headers={"Authorization": "<API_CREDENTIAL_REFERENCE>",
+                 "Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        r = json.loads(urllib.request.urlopen(req, timeout=300).read())
+        outpath.write_bytes(base64.b64decode(r["data"][0]["b64_json"]))
+        return True
+    except urllib.error.HTTPError as e:
+        print("HTTPFAIL", outpath.name, e.code, e.read().decode()[:200], flush=True)
+        return False
+
+
+def cover(im):
+    r = max(W / im.width, H / im.height)
+    im = im.resize((int(im.width * r) + 1, int(im.height * r) + 1), Image.Resampling.LANCZOS)
+    x = (im.width - W) // 2
+    y = (im.height - H) // 2
+    return im.crop((x, y, x + W, y + H))
+
+
+def wrap(text, f, max_w):
+    words = text.split()
+    lines, cur = [], ""
+    for w in words:
+        t = (cur + " " + w).strip()
+        if f.getlength(t) <= max_w:
+            cur = t
+        else:
+            lines.append(cur)
+            cur = w
+    lines.append(cur)
+    return lines
+
+
+def overlay(raw, text, pos="top"):
+    im = cover(Image.open(raw))
+    im = ImageEnhance.Contrast(im).enhance(1.06)
+    im = ImageEnhance.Color(im).enhance(1.04).convert("RGBA")
+    shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shade)
+    for y in range(H):
+        a = 0
+        if pos == "top" and y < 740:
+            a = max(a, int(66 * (1 - y / 740)))
+        if pos == "bottom" and y > 1260:
+            a = max(a, int(42 * ((y - 1260) / (H - 1260))))
+        if a:
+            sd.line((0, y, W, y), fill=(0, 0, 0, a))
+    im.alpha_composite(shade)
+    y = 230 if pos == "top" else 1120
+    size = 84
+    f = ImageFont.truetype(str(FONT_BOLD), size)
+    lines = wrap(text, f, 900)
+    lh = int(size * 1.06)
+    total = lh * len(lines)
+    while size >= 46 and total >= 440:
+        size -= 4
+        f = ImageFont.truetype(str(FONT_BOLD), size)
+        lines = wrap(text, f, 900)
+        lh = int(size * 1.06)
+        total = lh * len(lines)
+    halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    hd = ImageDraw.Draw(halo)
+    cy = y + total // 2
+    for r, a in [(420, 18), (310, 28), (220, 40)]:
+        hd.ellipse((W // 2 - r, cy - r, W // 2 + r, cy + r), fill=(0, 0, 0, a))
+    im.alpha_composite(halo)
+    d = ImageDraw.Draw(im)
+    yy = y
+    for line in lines:
+        bbox = d.textbbox((0, 0), line, font=f, stroke_width=7)
+        x = (W - (bbox[2] - bbox[0])) // 2
+        d.text((x, yy), line, font=f, fill=(255, 255, 255, 255), stroke_width=7, stroke_fill=(0, 0, 0, 245))
+        yy += lh
+    return im.convert("RGB")
+
+
+def build_jobs(cfg):
+    jobs = []  # (slug, n, pos, scene, text)
+    for c in cfg["concepts"]:
+        d = c["draft_config"]
+        slug = d["name"]
+        if c["style"] == "authority-list":
+            spots = iter(KITCHEN_SPOTS)
+            jobs.append((slug, 1, "top",
+                         "Sophia in her grandmother's warm kitchen at night, sitting at the wooden table "
+                         "looking at her phone with sad focus, pot steaming on the stove", d["hook"]))
+            for i, s in enumerate(c["phrase_slides"], start=2):
+                jobs.append((slug, i, "bottom" if i >= 4 else "top",
+                             f"Sophia in the same apartment at night, {next(spots)}", s["text"]))
+        else:
+            peer = d["thread"]["peer"]
+            jobs.append((slug, 1, "top",
+                         "Sophia in her bedroom at night in a soft hoodie, sitting on the edge of the bed "
+                         "looking at her phone with quiet regret, warm lamp, dark window", d["hook"]))
+            jobs.append((slug, 2, "top",
+                         f"Close over-shoulder shot of Sophia lying on her bed at night holding her phone "
+                         f"above her face, screen glow on her tense expression, dark room, warm bedside lamp",
+                         f"then {peer} texted"))
+            jobs.append((slug, 3, "bottom",
+                         "Sophia at her window at night, city lights behind her, phone in hand, calm "
+                         "decided expression, subtle practice-screen glow, direct flash", d["payoff"]))
+    return jobs
+
+
+def main():
+    # <API_CREDENTIAL_REFERENCE>: owner credential retrieval omitted.
+    cfg = json.load(open("/tmp/new_variant_concepts.json"))
+    jobs = build_jobs(cfg)
+    only = sys.argv[1:] if len(sys.argv) > 1 else None
+    for slug, n, pos, scene, text in jobs:
+        if only and slug not in only:
+            continue
+        odir = OUTROOT / slug
+        odir.mkdir(parents=True, exist_ok=True)
+        fin = odir / f"slide_{n:02d}_final.png"
+        if fin.exists():
+            continue
+        raw = odir / f"raw_{n}.png"
+        if not raw.exists():
+            if not gpt25(scene, raw):
+                continue
+        overlay(raw, text, pos).save(fin, quality=92)
+        (odir / "meta.json").write_text(json.dumps({"slug": slug, "n": n, "text": text}, indent=1))
+        print("done", slug, n, flush=True)
+
+
+import sys
+
+if __name__ == "__main__":
+    main()

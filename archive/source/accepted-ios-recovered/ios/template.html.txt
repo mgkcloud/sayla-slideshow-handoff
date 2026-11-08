@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* iPhone 15/16 Pro. All geometry in CSS px, which map 1:1 to iOS points.
+     Chrome's deviceScaleFactor=3 turns 393x852 into 1179x2556.
+     Never write pt here: 1pt is 1.333px and everything overflows. */
+  /* Measured off ios/real_lock_notif.png: a real SMS notification captured on
+     the locked device. An earlier pass used a Notification Centre capture,
+     which was wrong — that view is inset 39pt from the screen edge against the
+     lock screen's 14.3pt, so none of its margins transfer.
+
+     Card edges cannot be thresholded (the card is a translucent blur over the
+     wallpaper) and were found by averaging along each edge; see /tmp probes.
+     Card box: x 14.33 -> 379.00, top 594.00, corner arc reaching the straight
+     edge 22pt down. Icon slot centre x 47.00. Text left 79.33. */
+  :root {
+    --card-radius: 22px;
+    --card-margin: 14.2px;
+    --card-pad-x: 13.7px;
+    --card-pad-r: 17.7px;   /* the timestamp sits further in than the icon */
+    --card-pad-y: 11px;
+    /* Bottom padding is larger than top only to absorb the difference between
+       this font stack's line boxes and the device's. The cap-to-cap pitch and
+       the card height are the two things measurable on the real screen
+       (20.67pt and 65.33pt); splitting the correction between the body's
+       margin and the bottom padding satisfies both at once. */
+    --card-pad-b: 12.3px;
+    --icon: 38px;
+    --icon-radius: 9px;
+    --icon-gap: 13.3px;
+    --card-gap: 6px;
+    /* 17/17/15, not the 15/15/13 guessed before. Matched on ink width, which
+       barely moves with threshold, unlike height: "+61488839298" 125.00pt,
+       "Text Message" 103.33pt, "now" 26.00pt. */
+    --title-size: 17px;
+    --body-size: 17px;
+    --time-size: 15px;
+    --line-height: 1.267;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  html, body {
+    width: 393px; height: 852px; overflow: hidden;
+    /* system-ui, not -apple-system. In headless Chrome "-apple-system",
+       "SF Pro Text" and "SF Pro Display" all resolve to nothing and fall
+       through to Helvetica; only system-ui reaches the real SFNS.ttf.
+       Checked by cap height: SF is 0.7050 em, Helvetica 0.7180. */
+    font-family: system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    background: #000; color: #fff;
+  }
+
+  #screen { position: relative; width: 393px; height: 852px; overflow: hidden; }
+
+  #wall {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    background-color: #14161c;
+  }
+  /* iOS dims the wallpaper behind lock screen content */
+  #scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.16); }
+
+  /* ---- clock ----
+     Every number below is measured off ios/real_lock.png (iPhone 14 Pro,
+     iOS 26) rather than taken from a spec sheet. See the comments for what
+     each one was derived from.
+
+     Date and time are positioned independently instead of stacking in flow.
+     In flow the clock's position depends on the date's line-box height, which
+     is a function of the font metrics and so cannot be read off the real
+     screen; decoupling them means each `top` is just the measured value. */
+  #clockwrap { position: absolute; top: 0; left: 0; right: 0; }
+  #date {
+    position: absolute; top: 78.7px; left: 0; right: 0; text-align: center;
+    /* Real cap height 16.00pt with the 'g' of "Aug" excluded, real ink width
+       94.67pt. 22px gives cap 16.33 / width 96.00; the leftover 1.33pt of
+       width is tracked out over the 8 gaps, hence 0 rather than +0.1px. */
+    font-size: 22px; font-weight: 600; letter-spacing: 0; opacity: 0.95;
+  }
+  #time {
+    position: absolute; top: 96.3px; left: 0; right: 0; text-align: center;
+    /* Real digit height 86.33pt, ink width 231.67pt for "5:42". 119px gives
+       86.67 / 230.33 at -2.4px tracking, so the tracking is loosened by the
+       missing 1.34pt spread over the 3 gaps. */
+    font-size: 119px; font-weight: 590; letter-spacing: -1.9px;
+    /* CSS puts letter-spacing after the last glyph too, so a centred line is
+       pushed right by half of it. With negative tracking that is a visible
+       1pt at this size; the indent cancels it. */
+    text-indent: -0.95px;
+    line-height: 1.0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- notifications ---- */
+  #notifs {
+    position: absolute; left: var(--card-margin); right: var(--card-margin);
+    bottom: 92px;
+    display: flex; flex-direction: column; gap: var(--card-gap);
+  }
+
+  .card {
+    display: flex; align-items: flex-start;
+    padding: var(--card-pad-y) var(--card-pad-r) var(--card-pad-b) var(--card-pad-x);
+    border-radius: var(--card-radius);
+    /* Solved by rendering each slide twice, with the cards and without: the
+       difference is the material and nothing else, so the wallpaper the card
+       covers is known rather than inferred from a strip beside it.
+
+       Against the real card's backdrop the fill lifts it by (21.5, 26.1, 28.7),
+       which at alpha 0.30 puts the tint here. The old (128,128,136) only looked
+       right because it was measured over a much darker wallpaper, where a
+       translucent fill lifts more; on a light one it read as grey sludge.
+
+       Saturation is 150 rather than 190. The higher figure tinted the card with
+       whatever was behind it, which on a green wallpaper was obvious, and the
+       real card does not do that.
+
+       The radius is not fitted. How much wallpaper survives the blur depends on
+       how finely detailed that wallpaper is, so the figure it would take to
+       match the real capture's 0.79 is a property of the real capture's
+       wallpaper and does not transfer. Sweeping 30 -> 9px only moved the ratio
+       0.37 -> 0.54 anyway, so there is no radius that would have matched. */
+    background: rgba(156,168,178,0.30);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    overflow: hidden;
+  }
+
+  .card .icon {
+    width: var(--icon); height: var(--icon);
+    border-radius: var(--icon-radius);
+    margin-right: var(--icon-gap);
+    flex: 0 0 auto;
+    background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700;
+  }
+
+  .card .content { flex: 1 1 auto; min-width: 0; padding-top: 1px; }
+
+  .card .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  /* Tracking is 0, not -0.2px: at 17px the real strings measured 1-2pt wider
+     than a -0.2px render, and the real ones were read at a high threshold on a
+     light card, which if anything under-reports ink. */
+  .card .title { font-size: var(--title-size); font-weight: 600; letter-spacing: 0; }
+  .card .when  { font-size: var(--time-size); font-weight: 400; color: rgba(255,255,255,0.62); flex: 0 0 auto; }
+  .card .body  {
+    font-size: var(--body-size); font-weight: 400; letter-spacing: 0;
+    line-height: var(--line-height); margin-top: -0.33px;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+
+  /* ---- bottom chrome ---- */
+  /* Measured by radial averaging around each glyph centre: the discs are far
+     too translucent to threshold (lit wallpaper outside one is brighter than
+     shadow inside it) and a straight profile always locks onto the glyph,
+     which is a much stronger step than the rim. Averaging over all angles
+     cancels the wallpaper texture and leaves a clean edge at r = 29.0 on both
+     buttons, i.e. 58pt across — not the 44pt of older iOS. */
+  .quick {
+    position: absolute; bottom: 50px;      /* centre y 773.0 */
+    width: 58px; height: 58px; border-radius: 29px;
+    background: rgba(120,120,128,0.30);
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 4;
+  }
+  /* Centres measured at x 75.00 and x 318.00, which sum to 393: symmetric to
+     within the measurement floor, so both insets are the same number. */
+  #torch  { left: 46px; }
+  #camera { right: 46px; }
+  /* These are hand-drawn paths, not the real SF Symbols, so their aspect
+     ratios do not match Apple's and no uniform scale can satisfy both
+     dimensions at once. preserveAspectRatio="none" on each svg (see the body)
+     lets width and height be set from the two measurements independently:
+     torch 13.33 x 32.00, camera 26.00 x 20.33. */
+  .quick svg { fill: #fff; }
+  #torch  svg { width: 31.7px; height: 38px; }
+  #camera svg { width: 30.6px; height: 28.2px; }
+</style>
+</head>
+<body>
+<div id="screen">
+  <div id="wall"></div>
+  <div id="scrim"></div>
+
+  <!--CHROME-->
+
+  <div id="clockwrap">
+    <div id="date">Saturday, 9 August</div>
+    <div id="time">9:41</div>
+  </div>
+
+  <div id="notifs"></div>
+
+  <div class="quick" id="torch">
+    <svg viewBox="0 0 24 24" preserveAspectRatio="none"><path d="M7 2h10v4l-2 3v11a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V9L7 6V2zm2 2v1.4l2 3V20h2V8.4l2-3V4H9z"/></svg>
+  </div>
+  <div class="quick" id="camera">
+    <svg viewBox="0 0 24 24" preserveAspectRatio="none"><path d="M9 3h6l1.2 2H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3.8L9 3zm3 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+  </div>
+</div>
+
+<script>
+function render(cfg) {
+  document.getElementById('wall').style.backgroundImage = cfg.wallpaper ? `url("${cfg.wallpaper}")` : '';
+  if (cfg.wallpaperColor) document.getElementById('wall').style.backgroundColor = cfg.wallpaperColor;
+  document.getElementById('scrim').style.background = `rgba(0,0,0,${cfg.scrim ?? 0.16})`;
+  document.getElementById('date').textContent = cfg.date;
+  document.getElementById('time').textContent = cfg.time;
+  document.getElementById('sbtime').textContent = cfg.statusTime || cfg.time;
+
+  const nb = document.getElementById('notifs');
+  if (cfg.notifyTop != null) { nb.style.top = cfg.notifyTop + 'px'; nb.style.bottom = 'auto'; }
+  else { nb.style.bottom = (cfg.notifyBottom ?? 92) + 'px'; nb.style.top = 'auto'; }
+  if (cfg.hideChrome) {
+    for (const id of ['torch','camera','indicator']) document.getElementById(id).style.display = 'none';
+  }
+  const r = document.documentElement.style;
+  for (const [k,v] of Object.entries(cfg.vars || {})) r.setProperty('--'+k, v);
+
+  nb.innerHTML = '';
+  for (const n of cfg.notifications) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const icon = document.createElement('div');
+    icon.className = 'icon';
+    if (n.iconImage) icon.style.backgroundImage = `url("${n.iconImage}")`;
+    else { icon.style.background = n.iconColor || '#666'; icon.textContent = n.iconGlyph || ''; }
+
+    const content = document.createElement('div');
+    content.className = 'content';
+    const head = document.createElement('div'); head.className = 'head';
+    const t = document.createElement('div'); t.className = 'title'; t.textContent = n.title;
+    const w = document.createElement('div'); w.className = 'when';  w.textContent = n.when || '';
+    head.appendChild(t); head.appendChild(w);
+    const b = document.createElement('div'); b.className = 'body'; b.textContent = n.body;
+    content.appendChild(head); content.appendChild(b);
+
+    card.appendChild(icon); card.appendChild(content);
+    nb.appendChild(card);
+  }
+  document.body.dataset.ready = '1';
+}
+</script>
+</body>
+</html>

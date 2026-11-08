@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""Sayla carousel generator — renders 1080x1350 slides from copy JSON.
+
+Method lifted from Tobia's carousel-designer article (4 questions, 3 covers,
+one CTA, score before shipping) and implemented locally so it is reproducible.
+"""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+from playwright.sync_api import sync_playwright
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / "out"
+FONTS = Path.home() / ".hermes/cache/scratch/filmfonts"
+
+W, H = 1080, 1350
+
+CSS = """
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --ink:#0a0908;
+  --cream:#f4ece1;
+  --amber:#e8703a;
+  --dim:#8a7f74;
+}
+html,body { width:__W__px; height:__H__px; background:var(--ink); }
+.slide {
+  position:relative; width:__W__px; height:__H__px; overflow:hidden;
+  background:
+    radial-gradient(120%% 80%% at 70%% 0%%, #1d1510 0%%, #0a0908 55%%),
+    var(--ink);
+  color:var(--cream);
+  font-family:'Inter',-apple-system,Segoe UI,sans-serif;
+  padding:96px 88px 150px;
+  display:flex; flex-direction:column;
+}
+.grain {
+  position:absolute; inset:0; opacity:.16; pointer-events:none; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+}
+.top { display:flex; justify-content:space-between; align-items:center;
+       font-size:26px; letter-spacing:.22em; text-transform:uppercase; color:var(--dim); }
+.mark { display:flex; align-items:center; gap:14px; }
+.fox { width:34px; height:34px; }
+.body { flex:1; display:flex; flex-direction:column; justify-content:center; gap:36px; }
+h1 { font-family:'Fraunces',Georgia,serif; font-weight:600; letter-spacing:-.02em;
+     font-size:104px; line-height:1.02; }
+h1.small { font-size:86px; }
+.nowrap { white-space:nowrap; }
+.accent { color:var(--amber); }
+p.sub { font-size:40px; line-height:1.42; color:#ded4c8; max-width:900px; }
+.foot { display:flex; justify-content:space-between; align-items:flex-end;
+        font-size:26px; color:var(--dim); letter-spacing:.04em; }
+.cta { display:inline-block; margin-top:12px; padding:30px 44px; border:2px solid var(--amber);
+       border-radius:999px; color:var(--cream); font-size:34px; font-weight:600; letter-spacing:.01em; }
+.swipe { color:var(--amber); font-size:30px; letter-spacing:.18em; text-transform:uppercase; }
+.rule { width:96px; height:3px; background:var(--amber); margin:18px 0 0; }
+"""
+
+FOX_SVG = """<svg class="fox" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M18 22 L34 46 L50 38 L66 46 L82 22 L78 62 C78 78 66 88 50 88 C34 88 22 78 22 62 Z"
+ fill="#e8703a"/></svg>"""
+
+
+def font_faces():
+    faces = []
+    pairs = [("Fraunces", "Fraunces.ttf"), ("Inter", "Inter.ttf")]
+    for fam, fn in pairs:
+        p = FONTS / fn
+        if p.exists():
+            faces.append(
+                f"@font-face{{font-family:'{fam}';src:url('file://{p}') format('truetype');"
+                f"font-weight:100 900;}}"
+            )
+    return "\n".join(faces)
+
+
+def slide_html(s, idx, total):
+    head = f"""
+    <div class="grain"></div>
+    <div class="top">
+      <div class="mark">{FOX_SVG}<span>sayla</span></div>
+      <div>{s.get('eyebrow','')}</div>
+    </div>
+    """
+    if s.get("kind") == "cover":
+        body = f"""
+        <div class="body">
+          <h1>{s['headline']}</h1>
+          {f'<div class="rule"></div>' if s.get('rule') else ''}
+          {f"<p class='sub'>{s['sub']}</p>" if s.get('sub') else ''}
+          {f"<div class='swipe'>{s['swipe']}</div>" if s.get('swipe') else ''}
+        </div>
+        """
+    elif s.get("kind") == "statement":
+        body = f"""
+        <div class="body">
+          <h1 class="small">{s['headline']}</h1>
+          {f"<p class='sub'>{s['sub']}</p>" if s.get('sub') else ''}
+        </div>
+        """
+    else:  # cta
+        body = f"""
+        <div class="body">
+          <h1 class="small">{s['headline']}</h1>
+          {f"<p class='sub'>{s['sub']}</p>" if s.get('sub') else ''}
+          <div><span class="cta">{s['cta']}</span></div>
+        </div>
+        """
+    foot = f"<div class='foot'><div>{s.get('foot','')}</div><div>{idx}/{total}</div></div>"
+    return f"<!doctype html><html><head><meta charset='utf-8'><style>{font_faces()}\n{CSS.replace('__W__', str(W)).replace('__H__', str(H))}</style></head><body><div class='slide'>{head}{body}{foot}</div></body></html>"
+
+
+def main():
+    spec_path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "carousel.json"
+    spec = json.loads(spec_path.read_text())
+    slides = spec["slides"]
+    OUT.mkdir(parents=True, exist_ok=True)
+    name = spec.get("name", "carousel")
+
+    with sync_playwright() as p:
+        b = p.chromium.launch(channel="chrome", headless=True)
+        pg = b.new_page(viewport={"width": W, "height": H}, device_scale_factor=1)
+        made = []
+        for i, s in enumerate(slides, start=1):
+            html = slide_html(s, i, len(slides))
+            tmp = OUT / f".{name}-{i:02d}.html"
+            tmp.write_text(html)
+            pg.goto(f"file://{tmp}")
+            pg.wait_for_timeout(180)
+            dest = OUT / f"{name}-{i:02d}.png"
+            pg.screenshot(path=str(dest))
+            made.append(dest)
+            tmp.unlink()
+        b.close()
+
+    for m in made:
+        print(m)
+
+
+if __name__ == "__main__":
+    main()

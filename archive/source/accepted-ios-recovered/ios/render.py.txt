@@ -1,0 +1,86 @@
+"""Render a pixel-accurate iOS screen to PNG via headless Chrome at 3x.
+
+No image generation involved — this is deterministic layout, so the same config
+always produces the same bytes.
+
+    python3 render.py config.json out.png
+
+Which screen you get comes from the config's "screen" key:
+
+    "lock"     (default)  template.html
+    "imessage"            imessage.html
+"""
+
+import base64
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SCREENS = {"lock": "template.html", "imessage": "imessage.html"}
+CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+PT_W, PT_H = 393, 852   # iPhone 15/16 Pro logical size
+SCALE = 3               # -> 1179 x 2556
+
+
+def data_uri(path):
+    ext = os.path.splitext(path)[1].lstrip(".").lower()
+    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "webp": "webp"}.get(ext, "png")
+    with open(path, "rb") as fh:
+        return f"data:image/{mime};base64," + base64.b64encode(fh.read()).decode()
+
+
+def inline_assets(cfg):
+    """Turn local file paths into data URIs so Chrome needs no file access."""
+    cfg = json.loads(json.dumps(cfg))
+    if cfg.get("wallpaper") and not cfg["wallpaper"].startswith("data:"):
+        cfg["wallpaper"] = data_uri(os.path.expanduser(cfg["wallpaper"]))
+    if cfg.get("peerImage") and not cfg["peerImage"].startswith("data:"):
+        cfg["peerImage"] = data_uri(os.path.expanduser(cfg["peerImage"]))
+    for n in cfg.get("notifications", []):
+        p = n.get("iconImage")
+        if p and not p.startswith("data:"):
+            n["iconImage"] = data_uri(os.path.expanduser(p))
+    return cfg
+
+
+def build(cfg):
+    """Template + the shared status bar/home indicator + the config."""
+    name = SCREENS.get(cfg.get("screen", "lock"))
+    if name is None:
+        raise SystemExit(f"unknown screen {cfg.get('screen')!r}; pick from {sorted(SCREENS)}")
+    html = open(os.path.join(HERE, name)).read()
+    html = html.replace("<!--CHROME-->", open(os.path.join(HERE, "chrome.html")).read())
+    return html.replace(
+        "</body>",
+        f"<script>render({json.dumps(cfg)});</script></body>",
+    )
+
+
+def render(cfg, out):
+    html = build(inline_assets(cfg))
+    with tempfile.TemporaryDirectory() as tmp:
+        page = os.path.join(tmp, "page.html")
+        with open(page, "w") as fh:
+            fh.write(html)
+        subprocess.run([
+            CHROME,
+            "--headless=new",
+            "--disable-gpu",
+            "--hide-scrollbars",
+            "--force-color-profile=srgb",
+            "--default-background-color=00000000",
+            f"--force-device-scale-factor={SCALE}",
+            f"--window-size={PT_W},{PT_H}",
+            "--virtual-time-budget=3000",
+            f"--screenshot={os.path.abspath(out)}",
+            f"file://{page}",
+        ], check=True, capture_output=True)
+    print("wrote", out)
+
+
+if __name__ == "__main__":
+    render(json.load(open(sys.argv[1])), sys.argv[2])

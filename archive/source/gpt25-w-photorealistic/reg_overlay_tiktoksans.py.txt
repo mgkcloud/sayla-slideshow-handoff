@@ -1,0 +1,117 @@
+"""Re-overlay the gpt25_w_batch slides with TikTok Sans and no em dashes.
+
+Reuses the existing raw renders (no new API spend). Overlays are rebuilt from
+/tmp/new_variant_concepts.json with em dashes replaced by a plain hyphen.
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
+
+BASE = Path("<original-host-path>")
+OUTROOT = BASE / "carousels/gpt25_w_batch"
+W, H = 1080, 1920
+FONT_BOLD = Path("<original-host-path>")
+assert FONT_BOLD.exists(), "TikTokSans-Bold.ttf missing"
+
+
+def clean(text):
+    return re.sub(r"[—–]", " - ", text)
+
+
+def cover(im):
+    r = max(W / im.width, H / im.height)
+    im = im.resize((int(im.width * r) + 1, int(im.height * r) + 1), Image.Resampling.LANCZOS)
+    x = (im.width - W) // 2
+    y = (im.height - H) // 2
+    return im.crop((x, y, x + W, y + H))
+
+
+def wrap(text, f, max_w):
+    words = text.split()
+    lines, cur = [], ""
+    for w in words:
+        t = (cur + " " + w).strip()
+        if f.getlength(t) <= max_w:
+            cur = t
+        else:
+            lines.append(cur)
+            cur = w
+    lines.append(cur)
+    return lines
+
+
+def overlay(raw, text, pos="top"):
+    im = cover(Image.open(raw))
+    im = ImageEnhance.Contrast(im).enhance(1.06)
+    im = ImageEnhance.Color(im).enhance(1.04).convert("RGBA")
+    shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shade)
+    for y in range(H):
+        a = 0
+        if pos == "top" and y < 740:
+            a = max(a, int(66 * (1 - y / 740)))
+        if pos == "bottom" and y > 1260:
+            a = max(a, int(42 * ((y - 1260) / (H - 1260))))
+        if a:
+            sd.line((0, y, W, y), fill=(0, 0, 0, a))
+    im.alpha_composite(shade)
+    y = 230 if pos == "top" else 1120
+    size = 84
+    f = ImageFont.truetype(str(FONT_BOLD), size)
+    lines = wrap(text, f, 900)
+    lh = int(size * 1.06)
+    total = lh * len(lines)
+    while size >= 46 and total >= 440:
+        size -= 4
+        f = ImageFont.truetype(str(FONT_BOLD), size)
+        lines = wrap(text, f, 900)
+        lh = int(size * 1.06)
+        total = lh * len(lines)
+    halo = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    hd = ImageDraw.Draw(halo)
+    cy = y + total // 2
+    for r, a in [(420, 18), (310, 28), (220, 40)]:
+        hd.ellipse((W // 2 - r, cy - r, W // 2 + r, cy + r), fill=(0, 0, 0, a))
+    im.alpha_composite(halo)
+    d = ImageDraw.Draw(im)
+    yy = y
+    for line in lines:
+        bbox = d.textbbox((0, 0), line, font=f, stroke_width=7)
+        x = (W - (bbox[2] - bbox[0])) // 2
+        d.text((x, yy), line, font=f, fill=(255, 255, 255, 255), stroke_width=7, stroke_fill=(0, 0, 0, 245))
+        yy += lh
+    return im.convert("RGB")
+
+
+def main():
+    cfg = json.load(open("/tmp/new_variant_concepts.json"))
+    for c in cfg["concepts"]:
+        d = c["draft_config"]
+        slug = d["name"]
+        odir = OUTROOT / slug
+        slides = []
+        if c["style"] == "authority-list":
+            slides.append((1, "top", clean(d["hook"])))
+            for i, s in enumerate(c["phrase_slides"], start=2):
+                slides.append((i, "bottom" if i >= 4 else "top", clean(s["text"])))
+        else:
+            peer = d["thread"]["peer"]
+            slides.append((1, "top", clean(d["hook"])))
+            slides.append((2, "top", f"then {peer} texted"))
+            slides.append((3, "bottom", clean(d["payoff"])))
+        for n, pos, text in slides:
+            raw = odir / f"raw_{n}.png"
+            fin = odir / f"slide_{n:02d}_final.png"
+            if not raw.exists():
+                print("MISSING RAW", raw)
+                continue
+            overlay(raw, text, pos).save(fin, quality=92)
+            print("re-overlaid", slug, n, flush=True)
+    print("DONE")
+
+
+if __name__ == "__main__":
+    main()

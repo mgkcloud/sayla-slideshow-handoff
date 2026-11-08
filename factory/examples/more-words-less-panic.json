@@ -1,0 +1,41 @@
+{
+  "client": "sayla",
+  "caption": "Vocabulary matters. So does practicing the moment before you speak. #learnitalian #languagelearning #aitutor #sayla",
+  "background_images": [
+    "../assets/backgrounds/more-words-less-panic.png"
+  ],
+  "output_dir": "../drafts/more-words-less-panic",
+  "font": {
+    "fontSize": 72,
+    "lineHeight": 1.25,
+    "position": "top"
+  },
+  "imagery": "Fictional story draft on existing AI-generated Sayla imagery; not a testimonial; manual approval required.",
+  "source_provenance": {
+    "concept_path": "historical-sayla/concept.json",
+    "concept_sha256": "51a7fdf9e0693eef66ce8149cbe5f5ba9ce2c586be74117b49fe28e3007030a3",
+    "background_path": "historical-sayla/belief_violation.png",
+    "background_sha256": "9585349436dd726caea7b64831cbea2b1986b41672060fbde0ef7cecc0799b9a",
+    "adaptation": "Original hook arc used as source; payoff and caption rewritten as non-testimonial draft copy."
+  },
+  "hooks": [
+    {
+      "id": "belief-violation",
+      "text": [
+        "you don’t need more words"
+      ]
+    },
+    {
+      "id": "real-world-panic",
+      "text": [
+        "you need less panic when he says ciao"
+      ]
+    },
+    {
+      "id": "speaking-practice",
+      "text": [
+        "practice the awkward five seconds with sayla"
+      ]
+    }
+  ]
+}

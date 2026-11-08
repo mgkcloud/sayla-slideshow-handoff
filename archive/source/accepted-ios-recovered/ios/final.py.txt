@@ -1,0 +1,157 @@
+"""Swap the content, add the Sayla card, and shift the group up.
+
+The layout module is nc.py, which was validated against the capture: with the
+original content at the original position it reproduces every measured box to
+within a device pixel. So the only new things here are the content, the second
+card, and the shift.
+
+The shift is derived, not chosen. The stack's bottom edge stays where the single
+card's bottom edge was, so the group grows upwards and the header rides up with
+it by exactly the amount the stack grew.
+
+Line counts are measured rather than assumed: each body is rendered alone in the
+real text column and its ink runs are counted, because the card height is
+45.33 + 20 * lines and guessing the wrap would put every following element in
+the wrong place.
+"""
+import base64
+import io
+import os
+import subprocess
+import tempfile
+
+import numpy as np
+from PIL import Image, ImageDraw
+
+import nc
+
+IOS = "<original-host-path>"
+S = 3
+FILLRGB = np.array([255, 232, 229], np.int16)
+
+
+def uri(im):
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def monogram(letter, px=114):
+    """The iOS placeholder for a contact with no photo: grey circle, white initial."""
+    im = Image.new("RGB", (px, px), (0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for y in range(px):                      # the placeholder is a soft vertical grey
+        t = y / (px - 1)
+        v = int(round(174 - 28 * t))
+        d.line([(0, y), (px, y)], fill=(v, v, v + 2))
+    from PIL import ImageFont
+    for cand in ("/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/Helvetica.ttc"):
+        if os.path.exists(cand):
+            f = ImageFont.truetype(cand, int(px * 0.46))
+            break
+    box = d.textbbox((0, 0), letter, font=f)
+    d.text(((px - (box[2] - box[0])) / 2 - box[0],
+            (px - (box[3] - box[1])) / 2 - box[1]), letter, font=f, fill=(255, 255, 255))
+    return im
+
+
+def count_lines(bodies):
+    """Render each body alone in the real text column and count its ink runs."""
+    w = nc.TEXT_W
+    html = ["<html><head><meta charset='utf-8'><style>",
+            "*{margin:0;padding:0;-webkit-font-smoothing:antialiased}",
+            "body{background:rgb(255,232,229);color:rgb(26,23,22);",
+            "font-family:system-ui,-apple-system,sans-serif;letter-spacing:0}",
+            f".b{{width:{w}px;font-size:{nc.BODY_PX}px;font-weight:{nc.BODY_W};",
+            f"line-height:{nc.LINE_PITCH}px;margin-bottom:40px}}",
+            "</style></head><body>"]
+    for b in bodies:
+        html.append(f"<div class='b'>{b}</div>")
+    html.append("</body></html>")
+    out = "/tmp/tt/wrap.png"
+    with tempfile.TemporaryDirectory() as tmp:
+        page = os.path.join(tmp, "w.html")
+        open(page, "w").write("\n".join(html))
+        subprocess.run([nc.CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars",
+                        "--force-color-profile=srgb", f"--force-device-scale-factor={S}",
+                        f"--window-size=400,{80 + 80 * len(bodies)}",
+                        "--virtual-time-budget=3000",
+                        f"--screenshot={out}", f"file://{page}"], check=True, capture_output=True)
+    im = np.asarray(Image.open(out).convert("RGB")).astype(np.int16)
+    ink = np.abs(im - FILLRGB).sum(axis=2) > 6
+    runs, s = [], None
+    for i, v in enumerate(list(ink.any(axis=1)) + [False]):
+        if v and s is None:
+            s = i
+        elif not v and s is not None:
+            runs.append((s, i))
+            s = None
+    # runs are separated by the 40px margin between bodies; group on that gap
+    groups, cur = [], [runs[0]]
+    for a, b in runs[1:]:
+        if a - cur[-1][1] > 20 * S:
+            groups.append(cur)
+            cur = []
+        cur.append((a, b))
+    groups.append(cur)
+    assert len(groups) == len(bodies), f"{len(groups)} groups for {len(bodies)} bodies"
+    # descenders can fuse two lines into one run, so count by extent, not by run
+    out = []
+    for g in groups:
+        span = (g[-1][1] - g[0][0]) / S
+        out.append(int(round((span - nc.BODY_PX * 0.79) / nc.LINE_PITCH)) + 1)
+    return out
+
+
+def badge(path, size=16.0, ox=3.0, oy=3.0):
+    """A 16pt app badge sitting 3pt past the avatar's bottom-right corner."""
+    im = Image.open(path).convert("RGBA")
+    return im, size, ox, oy
+
+
+if __name__ == "__main__":
+    src = np.asarray(Image.open(nc.SRC).convert("RGB")).astype(np.float64)
+    plate = nc.repair_wallpaper(src)
+
+    gj = uri(monogram("G"))
+    sayla = uri(Image.open(f"{IOS}/sayla_icon.png").convert("RGB").resize((114, 114), Image.LANCZOS))
+    wa = uri(Image.open(f"{IOS}/icon_whatsapp.png").convert("RGBA").resize((48, 48), Image.LANCZOS))
+
+    bodies = ["A po vjen me na pa? Nuk kam fol me ty prej dy javesh.",
+              "Kosovo Gheg. 3 minutes. She’ll still be there tomorrow."]
+    lines = count_lines(bodies)
+    print("measured body lines:", lines)
+
+    av_top = nc.AVATAR_L                     # left; top is computed per card
+    badge_html = (f'<img src="{wa}" style="position:absolute;'
+                  f'left:{nc.AVATAR_L + nc.AVATAR + 3 - 16}px;top:{{by}}px;'
+                  f'width:16px;height:16px;border-radius:4.6px">')
+
+    cards = [
+        {"title": "Gjyshja", "when": "2m ago", "body": bodies[0], "lines": lines[0],
+         "avatar": {"src": gj, "radius": nc.AVATAR / 2}, "badge": wa},
+        {"title": "Sayla", "when": "now", "body": bodies[1], "lines": lines[1],
+         "avatar": {"src": sayla, "radius": 8.5}, "badge": None},
+    ]
+
+    # place the badge now that each card's height, and so its avatar top, is known
+    heights = [nc.CARD_PAD_TOP + nc.LINE_PITCH * c["lines"] for c in cards]
+    stack_h = sum(heights) + nc.CARD_GAP * (len(cards) - 1)
+    top = 694.50 - stack_h
+    y = top
+    for c, h in zip(cards, heights):
+        if c["badge"]:
+            ay = y + (h - nc.AVATAR) / 2
+            c["avatar"]["badge"] = (
+                f'<img src="{c["badge"]}" style="position:absolute;'
+                f'left:{nc.AVATAR_L + nc.AVATAR + 3 - 16}px;'
+                f'top:{ay + nc.AVATAR + 3 - 16}px;'
+                f'width:16px;height:16px;border-radius:4.6px">')
+        y += h + nc.CARD_GAP
+
+    print(f"stack height {stack_h:.2f}  top {top:.2f}  "
+          f"(was 105.33 / 589.17, so up {589.17 - top:.2f}pt)")
+
+    html = nc.build(cards, nc.data_uri(plate), stack_bottom=694.50)
+    nc.render(html, "/tmp/tt/final.png")
+    print("wrote /tmp/tt/final.png")

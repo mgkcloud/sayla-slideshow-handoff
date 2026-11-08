@@ -1,0 +1,21 @@
+{
+  "scope": "one three-slide trial, review-only; no publishing or ad spend",
+  "style": "illustrated comic, disclosed as illustration; not disguised as real footage",
+  "generator": "existing gpt25_w_batch.py function and text-overlay path",
+  "model": "gpt-image-2.5-flare",
+  "size": "1024x1536",
+  "copy": [
+    {
+      "file": "01",
+      "text": "The phrase was ready."
+    },
+    {
+      "file": "02",
+      "text": "The follow-up wasn\u2019t."
+    },
+    {
+      "file": "03",
+      "text": "Practise real replies out loud with Sayla."
+    }
+  ]
+}

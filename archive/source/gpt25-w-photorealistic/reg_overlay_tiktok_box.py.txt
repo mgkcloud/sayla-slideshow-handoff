@@ -1,0 +1,124 @@
+"""Re-overlay slides with authentic TikTok in-app text style.
+
+Research (TikTok Sans open-source release, Kapwing/Figma creator tools, Blitzcut
+2026 caption study): the signature TikTok text look is WHITE TIKTOK SANS inside a
+ROUNDED-CORNER BLACK BOX around the whole text block, centered on the slide.
+No stroke, no halo. Dashes are eliminated by restructuring into stacked lines.
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont
+
+BASE = Path("<original-host-path>")
+OUTROOT = BASE / "carousels/gpt25_w_batch"
+W, H = 1080, 1920
+FONT_BOLD = Path("<original-host-path>")
+assert FONT_BOLD.exists()
+
+DASH_RE = re.compile(r"[—–]")
+
+
+def clean(text):
+    return DASH_RE.sub("\n", text)
+
+
+def wrap(text, f, max_w):
+    words = text.split()
+    lines, cur = [], ""
+    for w in words:
+        t = (cur + " " + w).strip()
+        if f.getlength(t) <= max_w:
+            cur = t
+        else:
+            if cur:
+                lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def cover(im):
+    r = max(W / im.width, H / im.height)
+    im = im.resize((int(im.width * r) + 1, int(im.height * r) + 1), Image.Resampling.LANCZOS)
+    x = (im.width - W) // 2
+    y = (im.height - H) // 2
+    return im.crop((x, y, x + W, y + H))
+
+
+def overlay(raw, text, center_y):
+    """TikTok in-app style: one rounded black box, white TikTok Sans, centered."""
+    im = cover(Image.open(raw))
+    im = ImageEnhance.Contrast(im).enhance(1.04).convert("RGBA")
+    text = clean(text).strip()
+    # fit: largest size where visual lines fit width and block fits height
+    size = 78
+    f = ImageFont.truetype(str(FONT_BOLD), size)
+    visual = []
+    for seg in [s.strip() for s in text.split("\n") if s.strip()]:
+        visual.extend(wrap(seg, f, 880))
+    lh = int(size * 1.28)
+    block_h = len(visual) * lh + 48
+    block_w = max(f.getlength(l) for l in visual) + 72
+    while size >= 40 and (block_w > 980 or block_h > 720):
+        size -= 4
+        f = ImageFont.truetype(str(FONT_BOLD), size)
+        visual = []
+        for seg in [s.strip() for s in text.split("\n") if s.strip()]:
+            visual.extend(wrap(seg, f, 880))
+        lh = int(size * 1.28)
+        block_h = len(visual) * lh + 48
+        block_w = max(f.getlength(l) for l in visual) + 72
+    overlay_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay_layer)
+    cy = int(H * center_y)
+    top = cy - block_h // 2
+    box = (max(20, (W - int(block_w)) // 2), top, min(W - 20, (W + int(block_w)) // 2), top + block_h)
+    od.rounded_rectangle(box, radius=28, fill=(0, 0, 0, 182))
+    im.alpha_composite(overlay_layer)
+    d = ImageDraw.Draw(im)
+    yy = top + 24 + (lh - size) // 2
+    for line in visual:
+        wpx = d.textlength(line, font=f)
+        d.text(((W - wpx) / 2, yy), line, font=f, fill=(255, 255, 255, 255))
+        yy += lh
+    return im.convert("RGB")
+
+
+def build_jobs(cfg):
+    jobs = []
+    for c in cfg["concepts"]:
+        d = c["draft_config"]
+        slug = d["name"]
+        if c["style"] == "authority-list":
+            jobs.append((slug, 1, d["hook"], 0.36))
+            for i, s in enumerate(c["phrase_slides"], start=2):
+                jobs.append((slug, i, s["text"], 0.42 if i <= 3 else 0.74))
+        else:
+            peer = d["thread"]["peer"]
+            jobs.append((slug, 1, d["hook"], 0.36))
+            jobs.append((slug, 2, f"then {peer} texted", 0.38))
+            jobs.append((slug, 3, d["payoff"], 0.76))
+    return jobs
+
+
+def main():
+    cfg = json.load(open("/tmp/new_variant_concepts.json"))
+    jobs = build_jobs(cfg)
+    assert not DASH_RE.search(json.dumps(cfg)), "dash remains in config"
+    for slug, n, text, cy in jobs:
+        odir = OUTROOT / slug
+        raw = odir / f"raw_{n}.png"
+        fin = odir / f"slide_{n:02d}_final.png"
+        boxed_text = clean(text).strip()
+        assert not DASH_RE.search(boxed_text), f"dash in {slug} {n}: {boxed_text}"
+        overlay(raw, text, cy).save(fin, quality=92)
+        print("boxed", slug, n, f"cy={cy}", flush=True)
+    print("DONE")
+
+
+if __name__ == "__main__":
+    main()

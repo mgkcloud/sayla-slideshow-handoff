@@ -1,0 +1,22 @@
+{
+  "date": "Saturday, 9 August",
+  "time": "21:40",
+  "statusTime": "21:40",
+  "wallpaperColor": "#1a1d24",
+  "scrim": 0.10,
+  "notifications": [
+    {
+      "title": "Gjyshja",
+      "when": "2 min ago",
+      "body": "A po vjen me na pa? S'kam fol me ty prej dy javesh.",
+      "iconColor": "#25D366",
+      "iconGlyph": "W"
+    },
+    {
+      "title": "Sayla",
+      "when": "now",
+      "body": "Kosovo Gheg. 3 minutes. She'll wait.",
+      "iconImage": "sayla_icon.png"
+    }
+  ]
+}

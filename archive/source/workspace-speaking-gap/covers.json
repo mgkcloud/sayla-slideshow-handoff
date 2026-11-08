@@ -1,0 +1,23 @@
+{
+  "name": "sayla-covers",
+  "slides": [
+    {
+      "kind": "cover",
+      "eyebrow": "cover a",
+      "headline": "You've got a <span class=\"accent\">900-day streak</span>. You still can't order a coffee.",
+      "rule": true
+    },
+    {
+      "kind": "cover",
+      "eyebrow": "cover b",
+      "headline": "You can read <span class=\"nowrap accent\">la bibliothèque</span>. You can't ask where it is.",
+      "rule": true
+    },
+    {
+      "kind": "cover",
+      "eyebrow": "cover c",
+      "headline": "You can pass the <span class=\"accent\">test</span>. You can't hold the conversation.",
+      "rule": true
+    }
+  ]
+}

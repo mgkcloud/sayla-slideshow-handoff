@@ -1,0 +1,203 @@
+{
+  "sources": [
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/assemble.py.txt",
+      "sha256": "58af245a6a8aa6e51f910f1803e281d947201da5014a967894edd2ef0673ffdc",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/capoff.json.txt",
+      "sha256": "6e32e8080e604eb37b55c5c89d23d179230e776034e530519d5dba9c4e76be4a",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/cfg_demo.json.txt",
+      "sha256": "c2771132a67d5d5d410b09ec4276dd2bf8371e9a47649dd9d3ce5948d680ddf5",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/cfg_imessage.json.txt",
+      "sha256": "bf8995444dce6aaa64dca35227aa3dc29efca954be1ecd132a24d9274b6ec71d",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/cfg_parity.json.txt",
+      "sha256": "f567f5c71356e38bf77002720894c57c5fd31115725e6400f22d326a6a3dff4d",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/chrome.html.txt",
+      "sha256": "3a374e641b549a74b57d66fbd7d7ff9c5951b26c8cd87265b8c6366d8fddacbf",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/cmp.py.txt",
+      "sha256": "d1e91ed593b9349593d889ed148ff1743f157e2e173faf87ae196c609d248bc8",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/final.py.txt",
+      "sha256": "e24735e302b5ace638999f20ee5fd52f5f48673c5e4f7e5c43230dc85d0a92fe",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/icons.py.txt",
+      "sha256": "4e610790b9c02542c300beff62c59ec934442f189fa0747d7be921e9f0c7de93",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/imessage.html.txt",
+      "sha256": "d2769b69e3f3de9a673c5b7f4d08546fb99e0a374bf261e5ea028bc6de12b940",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/measure.py.txt",
+      "sha256": "c978967119e3d702d58898f283117b45a048875339d42001b95ec33e4068d424",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/nc.py.txt",
+      "sha256": "02f23aa92ab19cc2d815021f1fddc3d6a5a9aecb9bf0565d7cf8aa3a349b09a0",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/render.py.txt",
+      "sha256": "99aeb4d8e4298194b28d51db49fab0add34bab07f1b9ad48bd3efee2053da218",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/template.html.txt",
+      "sha256": "7fa56c3c161fa5ea88b129e5a6ab949f9367dd6312afa71f4bca96a9ae0b94f7",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/ios/tiktok_text.py.txt",
+      "sha256": "18c47ab2028ce073523a9b5c94700b97e128e78fd82b9f21d275df6cbb167ddf",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/slides.py.txt",
+      "sha256": "993ff9b9a5bdea7447b34ef0bb40fd9673ceb05e2e602baa3018f8640760f475",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/variant_h.py.txt",
+      "sha256": "1e25661f07ab38155969f2781639d65e6d329327c5be301612d41a2ada7172cb",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/accepted-ios-recovered/variants.py.txt",
+      "sha256": "6ff6534e5609e6c027f4f215d007548378cc7940c3638c000af210804852015d",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/canvas-config-png-v1/generate-slides.js.txt",
+      "sha256": "38ee66c9af6008e97b19a5aeb0cf95fae1d6df701bcdaed465a6ac86aab3d77e",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/canvas-config-png-v1/package.json",
+      "sha256": "e25d6aa990373b85d6360cc85ee90a1507facaf222b9bc82bd3f0be077f5b1b7",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/canvas-config-png-v1/slides-config.schema.json",
+      "sha256": "f63273f19ccbdbc0f9c21a19adb3d58465160ab5d255e0ce0b7ead73a47e5f2f",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/french-vacation-higgsfield/generate_sayla_french_for_him_france.py.txt",
+      "sha256": "abf0442e4b48960fce3162da7ab88e379097f7002a0abbfa98b16b0e037b10c1",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/gpt25-w-photorealistic/gpt25_w_batch.py.txt",
+      "sha256": "09ae47a6c19c8410b746309ca2c654fc718495e6241368e7aafb849a8d99700e",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/gpt25-w-photorealistic/reg_overlay_tiktok_box.py.txt",
+      "sha256": "0c55026abade8dcc62ca063a73b35c63f97f949e73f0cb1561a3664a6d6ee000",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/gpt25-w-photorealistic/reg_overlay_tiktoksans.py.txt",
+      "sha256": "143342a415bdebc041d618c005c57ca4610847333f84827f25100bfd9bb6ea35",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/organic-listicles/slideshow_set.py.txt",
+      "sha256": "a24a0e0c337276fd3f75903d07d81a0829afa73d08f7299f10e9565368de067a",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/tier3-language-hooks/head-3abf1df/generate_sayla_tier3_carousel_batch.py.txt",
+      "sha256": "2427d5ef6776139e9f52e9f379d77127923f96fd527b419bf1c159756d3305a7",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/tier3-language-hooks/working-tree/generate_sayla_tier3_carousel_batch.py.txt",
+      "sha256": "745c9a084eaddeb54d85ba84ba30ce9317e794bd5323e986f57d1533dc872103",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/variant-factory/generate_variant.py.txt",
+      "sha256": "def0bd2d5d9d73988d53bf8ca9da2d0cb5c4f05d16a7187e370eb7990b21f1b3",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/workspace-speaking-gap/README.md",
+      "sha256": "0a3753e3e1dba250c98eb920abc934149c3457a1c2d18e877b313d3e55d413a9",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/workspace-speaking-gap/carousel.json",
+      "sha256": "569aa805c5b92696ad241c9da02e337e2099e96b24ec11427d9cd906cae41abf",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/workspace-speaking-gap/covers.json",
+      "sha256": "dc0c149d62ee808c4497046e106f7a1d6d534704517e4169b5ca994c330724e7",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    },
+    {
+      "path": "archive/source/workspace-speaking-gap/generate.py.txt",
+      "sha256": "796b68375a677d6f919c0dce97e68ab9433c68e16c99243a3204de5ceabd1680",
+      "status": "inert_historical_reference",
+      "transformation": "Public reference projection: owner operational details, protected reference identifiers and unrelated tenant data omitted; inert source or excerpt, not an execution entrypoint."
+    }
+  ],
+  "note": "Public snapshot hashes and transformation descriptions. Original private archive/history is not included; content-addressed public media keys remain stable."
+}

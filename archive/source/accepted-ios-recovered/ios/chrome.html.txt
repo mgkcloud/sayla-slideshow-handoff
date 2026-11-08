@@ -1,0 +1,88 @@
+<!--
+  Shared iOS chrome: status bar with Dynamic Island, and the home indicator.
+  render.py substitutes this wherever a template writes the CHROME placeholder
+  comment. Do not write that placeholder here: it would close this comment.
+
+  Every number here was measured off real 1179x2556 iPhone 15/16 Pro
+  screenshots, then divided by 3 to get points. Do not "tidy" them.
+
+    Dynamic Island   125.0 x 37.0 pt, centred, top 11.3
+    status time      17pt semibold, digit top y=23.0, centre x=71
+    signal bars      4 bars, 3.7 wide, 6.0 pitch, heights 5.3/7.7/10.7/13.7
+    wifi             19.0 x 13.7
+    battery          28.4 x 13.4 body, +2.0 nub
+    right cluster    ends 33pt from the screen edge
+-->
+<style>
+  #status {
+    position: absolute; top: 0; left: 0; right: 0; height: 59px;
+    z-index: 5; pointer-events: none;
+  }
+  #island {
+    position: absolute; top: 11.3px; left: 50%; transform: translateX(-50%);
+    width: 125px; height: 37px; border-radius: 18.5px; background: #000;
+  }
+  #sbtime {
+    position: absolute; left: 0; width: 142px; top: 0; height: 59px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 600; letter-spacing: 0.2px;
+    font-variant-numeric: tabular-nums;
+    padding-bottom: 1.3px;  /* digits sit 0.7pt high of the box centre on device */
+  }
+  #sbright {
+    position: absolute; right: 33px; top: 0; height: 59px;
+    display: flex; align-items: flex-end; gap: 0;
+  }
+  #sbright .bars { display: flex; align-items: flex-end; gap: 2.3px; margin-bottom: 21px; }
+  #sbright .bars i { width: 3.7px; border-radius: 1.2px; background: currentColor; display: block; }
+  #sbright .wifi { margin-left: 7.7px; margin-bottom: 21px; }
+  #sbright .batt { margin-left: 8.7px; margin-bottom: 21px; position: relative; }
+  /* display:block matters — width/height do not apply to an inline span, and
+     without it the shell collapses and drags the whole cluster out of place. */
+  #sbright .batt .shell {
+    display: block;
+    width: 28.4px; height: 13.4px; border-radius: 4.3px;
+    border: 1.1px solid currentColor; opacity: 0.38; box-sizing: border-box;
+  }
+  #sbright .batt .fill {
+    position: absolute; left: 2.2px; top: 2.2px; height: 9.0px;
+    border-radius: 2.5px; background: currentColor;
+  }
+  #sbright .batt .nub {
+    position: absolute; left: 29.6px; top: 4.6px; width: 1.9px; height: 4.2px;
+    border-radius: 0 1px 1px 0; background: currentColor; opacity: 0.38;
+  }
+
+  #indicator {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    /* 140, not 139: measured 126.67 -> 266.67 on ios/real_lock.png. The top
+       and bottom (839.00 / 844.00) already matched to the pixel. */
+    width: 140px; height: 5px; border-radius: 2.5px; background: currentColor;
+    z-index: 5;
+  }
+</style>
+
+<div id="status">
+  <div id="sbtime">9:41</div>
+  <div id="island"></div>
+  <div id="sbright">
+    <span class="bars">
+      <i style="height:5.3px"></i><i style="height:7.7px"></i>
+      <i style="height:10.7px"></i><i style="height:13.7px"></i>
+    </span>
+    <!-- Two arc bands plus a dot, all struck from the dot centre (9.5, 11.6)
+         and swept +/-55deg, which is what makes the fan exactly 19 wide. -->
+    <svg class="wifi" width="19" height="13.7" viewBox="0 0 19 13.7" fill="currentColor">
+      <path d="M0 4.95A11.6 11.6 0 0 1 19 4.95L17.28 6.15A9.5 9.5 0 0 0 1.72 6.15Z"/>
+      <path d="M3.44 7.36A7.4 7.4 0 0 1 15.56 7.36L13.84 8.56A5.3 5.3 0 0 0 5.16 8.56Z"/>
+      <circle cx="9.5" cy="11.6" r="2.1"/>
+    </svg>
+    <span class="batt">
+      <span class="shell"></span>
+      <span class="fill" style="width:19px"></span>
+      <span class="nub"></span>
+    </span>
+  </div>
+</div>
+
+<div id="indicator"></div>

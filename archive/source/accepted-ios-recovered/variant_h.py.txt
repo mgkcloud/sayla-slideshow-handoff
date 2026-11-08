@@ -1,0 +1,104 @@
+"""Variant h: the authority-list carousel.
+
+a-g are narrative — story, receipts, payoff. h is the other TikTok meta:
+an authority figure with a credential promises N things, the slides deliver
+them, and the app lives only in the caption. The hook formula is
+"[authority] [credential]. These are the [N] [things] [outcome]." and the
+authority is gjyshja, which nobody selling a language app can copy.
+
+Slides render text-on-photo, same as a hook slide, so there is no new
+generation in the path: the same ten scene stills carry it.
+
+The phrases are lifted from gjyshja's own threads in variants.py (a/c) and
+Dren's (b) — all already written Gheg, none invented here. Each pairs the
+Gheg with what a translator does to it, which is the product's whole claim
+made five times instead of asserted once.
+
+Run:  python3 variant_h.py            # all five phrase slides + slide 1
+      python3 variant_h.py 2 4       # slides 2 and 4 only
+"""
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(HERE, "out")
+
+# Background stills: gjyshja-adjacent scenes (home, family, evening) over
+# street/venue ones. kitchen/table are where a grandmother exists.
+SLIDES = [
+    {
+        "n": 1,
+        "photo": "s2_kitchen.png",
+        "hook": True,
+        "text": ("my grandmother has spoken gheg her whole life. "
+                  "these are the 5 phrases she says that google translate "
+                  "gets completely wrong"),
+        "y": 0.60, "size": 68,
+    },
+    {
+        "n": 2,
+        "photo": "s2_table.png",
+        "text": ("1. \"A po vjen me na pa?\" — "
+                  "she's not asking IF you're coming. "
+                  "she's telling you people are waiting"),
+        "y": 0.50, "size": 58,
+    },
+    {
+        "n": 3,
+        "photo": "s2_bedroom.png",
+        "text": ("2. \"Une jam plake, mos prit shume\" — "
+                  "translate says \"I am old, don't wait long.\" "
+                  "she means: come while I can still cook for you"),
+        "y": 0.50, "size": 58,
+    },
+    {
+        "n": 4,
+        "photo": "s2_balcony.png",
+        "text": ("3. \"Sa mall qe kam per ty bir\" — "
+                  "\"how much mall do I have for you.\" "
+                  "mall has no english. it's missing someone with your hands"),
+        "y": 0.50, "size": 58,
+    },
+    {
+        "n": 5,
+        "photo": "s2_cafe.png",
+        "text": ("4. \"qysh je bre\" — literally \"how are you bre.\" "
+                  "but bre is a hug inside a word. nobody teaches you bre"),
+        "y": 0.50, "size": 58,
+    },
+    {
+        "n": 6,
+        "photo": "s2_hall.png",
+        "text": ("5. \"Fol shqip sonte, te lutem\" — "
+                  "\"speak albanian tonight, I beg you.\" "
+                  "that one's for you. she means it"),
+        "y": 0.50, "size": 58,
+    },
+]
+
+CAPTION = ("she's 78 and she'll never switch to english for me. "
+           "sayla actually speaks gheg, not textbook albanian. "
+           "link in bio")
+
+
+def render(s):
+    photo = os.path.join(OUT, s["photo"])
+    if not os.path.exists(photo):
+        print("skip", s["n"], "no photo", s["photo"])
+        return
+    out = os.path.join(OUT, f"h_{s['n']}_{'hook' if s.get('hook') else 'phrase'}.png")
+    args = [sys.executable, os.path.join(HERE, "slides.py"), "hook", out,
+            s["text"], "--photo", photo,
+            "--y", str(s["y"]), "--size", str(s["size"])]
+    if s.get("hook"):
+        args.append("--yellow")
+    subprocess.run(args, check=True)
+
+
+if __name__ == "__main__":
+    want = {int(a) for a in sys.argv[1:]} if sys.argv[1:] else None
+    for s in SLIDES:
+        if want is None or s["n"] in want:
+            render(s)
+    print("caption:", CAPTION)

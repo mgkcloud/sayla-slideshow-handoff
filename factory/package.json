@@ -1,0 +1,18 @@
+{
+  "name": "sayla-slideshow-factory",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-only Sayla JSON script to ordered PNG and caption drafts",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "demo": "node demo.mjs"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.67"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
