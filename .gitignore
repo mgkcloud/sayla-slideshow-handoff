@@ -4,6 +4,7 @@ __pycache__/
 factory/drafts/
 factory/.staging-*/
 factory/graphify-out/
+graphify-out/
 .env
 .env.*
 *.key

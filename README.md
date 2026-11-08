@@ -14,7 +14,7 @@ npm run demo
 
 The local factory turns a JSON script and local backgrounds into ordered PNGs, a caption and a hash manifest. Nothing posts or schedules. Fonts, backgrounds, sample scripts and tests are included; rendering needs no API key or original host.
 
-Verified on the staged public copy: dependency install passed, **10/10 tests passed**, and the network-blocked demo produced **three sets / nine 1080×1920 PNGs** with matching captions/manifests. [Receipt](verification/runtime.json).
+Verified from an **anonymous clone with credentials disabled**: dependency install passed, **10/10 tests passed**, and the network-blocked demo produced **three sets / nine 1080×1920 PNGs**. All employee-facing source links and 452 full-resolution asset downloads were checked without login. [Access receipt](verification/public-access.json) · [Runtime receipt](verification/runtime.json).
 
 Maintained factory code is [MIT licensed](factory/LICENSE); historical snapshots and creative/media are outside that grant. [Scope](LICENSE.md).
 

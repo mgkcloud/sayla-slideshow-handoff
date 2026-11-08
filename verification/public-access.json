@@ -1,0 +1,87 @@
+{
+  "status": "PASS",
+  "public_repository": "https://github.com/mgkcloud/sayla-slideshow-handoff",
+  "tested_runtime_commit": "118b8e7f5b58d03f87f167d3cbdb0bf3a4325e65",
+  "anonymous_clone": true,
+  "credentials_disabled_for_clone": true,
+  "npm_steps": [
+    {
+      "name": "install",
+      "exit_code": 0,
+      "render_network_blocked": false
+    },
+    {
+      "name": "test",
+      "exit_code": 0,
+      "render_network_blocked": false
+    },
+    {
+      "name": "demo",
+      "exit_code": 0,
+      "render_network_blocked": true
+    }
+  ],
+  "tests": {
+    "tests": 10,
+    "pass": 10,
+    "fail": 0,
+    "skipped": 0
+  },
+  "rendered_pngs": 9,
+  "dimensions": [
+    1080,
+    1920
+  ],
+  "public_source_links_checked": 7,
+  "source_link_readbacks": [
+    {
+      "source_link": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/archive/source/accepted-ios-recovered/variants.py.txt",
+      "anonymous_http": 200,
+      "bytes_match": true
+    },
+    {
+      "source_link": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HANDOFF.md",
+      "anonymous_http": 200,
+      "bytes_match": true
+    },
+    {
+      "source_link": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/HOOKS-AND-STYLES.md",
+      "anonymous_http": 200,
+      "bytes_match": true
+    },
+    {
+      "source_link": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/NATIVE-RECOVERY.md",
+      "anonymous_http": 200,
+      "bytes_match": true
+    },
+    {
+      "source_link": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/docs/VERSIONS.md",
+      "anonymous_http": 200,
+      "bytes_match": true
+    },
+    {
+      "source_link": "https://github.com/mgkcloud/sayla-slideshow-handoff/blob/main/factory/IMPLEMENTATION.md",
+      "anonymous_http": 200,
+      "bytes_match": true
+    },
+    {
+      "source_link": "https://github.com/mgkcloud/sayla-slideshow-handoff/tree/main/archive/source/accepted-ios-recovered/ios",
+      "anonymous_http": 200
+    }
+  ],
+  "browser": {
+    "site_http": 200,
+    "github_popup_url": "https://github.com/mgkcloud/sayla-slideshow-handoff",
+    "github_popup_title": "GitHub - mgkcloud/sayla-slideshow-handoff \u00b7 GitHub",
+    "public_label_visible": true
+  },
+  "full_resolution_media": {
+    "status": "PASS",
+    "at_utc": "2026-11-08T06:21:06.778027+00:00",
+    "public_objects": 452,
+    "bytes": 776376785,
+    "all_anonymous_sha256_verified": true,
+    "bucket_prefix": "goon/sayla-slideshow-guide/employee-assets/"
+  },
+  "scope": "Code, setup/docs, safe historical source references, previews and full-resolution review assets are public. Owner credentials, protected reference inputs and private archival history are excluded and not required by factory/."
+}
